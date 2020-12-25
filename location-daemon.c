@@ -29,7 +29,6 @@
 
 /* macros */
 #define TSTONS(ts) ((double)((ts).tv_sec + ((ts).tv_nsec / 1e9)))
-//#define TSTONS(ts) ((double)((ts)->tv_sec + ((ts)->tv_nsec / 1e9)))
 #define nelem(x) (sizeof (x) / sizeof *(x))
 
 /* enums */
@@ -47,11 +46,7 @@
 
 /* function declarations */
 static void usage(void);
-static void fixstatus_changed(void);
-static void time_changed(void);
-static void position_changed(void);
-static void course_changed(void);
-static void accuracy_changed(void);
+static void dbus_send_va(const char *, const char *, int, ...);
 static void poll_and_publish_gpsd_data(void);
 
 /* variables */
@@ -80,136 +75,29 @@ void usage(void)
 	exit(1);
 }
 
-void fixstatus_changed(void)
+void dbus_send_va(const char *interface, const char *sig, int f, ...)
 {
 	DBusMessage *msg;
 	dbus_uint32_t serial = 0;
 
-	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, DEVICE_INTERFACE,
-		"FixStatusChanged");
+	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, interface, sig);
 	if (msg == NULL) {
-		fprintf(stderr, "fixstatus_changed: message NULL\n");
+		fprintf(stderr, "dbus_send_double: %s message NULL\n", sig);
 		return;
 	}
 
-	if (!dbus_message_append_args(msg, DBUS_TYPE_INT32, &mode,
-		DBUS_TYPE_INVALID)) {
-		fprintf(stderr, "fixstatus_changed: Out of memory on append\n");
+	va_list var_args;
+	va_start(var_args, f);
+
+	if (!dbus_message_append_args_valist(msg, f, var_args)) {
+		fprintf(stderr, "dbus_send_va: %s: out of memory on append\n", sig);
 		return;
 	}
+
+	va_end(var_args);
 
 	if (!dbus_connection_send(dbus, msg, &serial)) {
-		fprintf(stderr, "fixstatus_changed: Out of memory on send\n");
-		return;
-	}
-
-	dbus_connection_flush(dbus);
-	dbus_message_unref(msg);
-}
-
-void time_changed(void)
-{
-	DBusMessage *msg;
-	dbus_uint32_t serial = 0;
-
-	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, TIME_INTERFACE,
-		"TimeChanged");
-	if (msg == NULL) {
-		fprintf(stderr, "time_changed: message NULL\n");
-		return;
-	}
-
-	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, &dtime,
-		DBUS_TYPE_INVALID)) {
-		fprintf(stderr, "time_changed: Out of memory on append\n");
-		return;
-	}
-
-	if (!dbus_connection_send(dbus, msg, &serial)) {
-		fprintf(stderr, "time_changed: Out of memory on send\n");
-		return;
-	}
-
-	dbus_connection_flush(dbus);
-	dbus_message_unref(msg);
-}
-
-void position_changed(void)
-{
-	DBusMessage *msg;
-	dbus_uint32_t serial = 0;
-
-	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, POSITION_INTERFACE,
-		"PositionChanged");
-	if (msg == NULL) {
-		fprintf(stderr, "position_changed: message NULL\n");
-		return;
-	}
-
-	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, &lat,
-		DBUS_TYPE_DOUBLE, &lon, DBUS_TYPE_DOUBLE, &alt, DBUS_TYPE_INVALID)) {
-		fprintf(stderr, "position_changed: Out of memory on append\n");
-		return;
-	}
-
-	if (!dbus_connection_send(dbus, msg, &serial)) {
-		fprintf(stderr, "position_changed: Out of memory on send\n");
-		return;
-	}
-
-	dbus_connection_flush(dbus);
-	dbus_message_unref(msg);
-}
-
-void course_changed(void)
-{
-	DBusMessage *msg;
-	dbus_uint32_t serial = 0;
-
-	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, COURSE_INTERFACE,
-		"CourseChanged");
-	if (msg == NULL) {
-		fprintf(stderr, "course_changed: message NULL\n");
-		return;
-	}
-
-	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, &spd,
-		DBUS_TYPE_DOUBLE, &trk, DBUS_TYPE_DOUBLE, &clb, DBUS_TYPE_INVALID)) {
-		fprintf(stderr, "course_changed: Out of memory on append\n");
-		return;
-	}
-
-	if (!dbus_connection_send(dbus, msg, &serial)) {
-		fprintf(stderr, "course_changed: Out of memory on send\n");
-		return;
-	}
-
-	dbus_connection_flush(dbus);
-	dbus_message_unref(msg);
-}
-
-void accuracy_changed(void)
-{
-	DBusMessage *msg;
-	dbus_uint32_t serial = 0;
-
-	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, ACCURACY_INTERFACE,
-		"AccuracyChanged");
-	if (msg == NULL) {
-		fprintf(stderr, "accuracy_changed: message NULL\n");
-		return;
-	}
-
-	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, &eph,
-		DBUS_TYPE_DOUBLE, &epv, DBUS_TYPE_DOUBLE, &eps,
-		DBUS_TYPE_DOUBLE, &eps, DBUS_TYPE_DOUBLE, &ept,
-		DBUS_TYPE_INVALID)) {
-		fprintf(stderr, "accuracy_changed: Out of memory on append\n");
-		return;
-	}
-
-	if (!dbus_connection_send(dbus, msg, &serial)) {
-		fprintf(stderr, "accuracy_changed: Out of memory on send\n");
+		fprintf(stderr, "dbus_send_va: %s: out of memory on send\n", sig);
 		return;
 	}
 
@@ -231,13 +119,17 @@ void poll_and_publish_gpsd_data(void)
 
 		if (mode != f.mode) {
 			mode = f.mode;
-			fixstatus_changed();
+			dbus_send_va(DEVICE_INTERFACE, "FixStatusChanged",
+				DBUS_TYPE_INT32, &mode,
+				DBUS_TYPE_INVALID);
 		}
 
 		if (gpsdata.set & TIME_SET) {
 			if (dtime != TSTONS(f.time)) {
 				dtime = TSTONS(f.time);
-				time_changed();
+				dbus_send_va(TIME_INTERFACE, "TimeChanged",
+				DBUS_TYPE_DOUBLE, &dtime,
+				DBUS_TYPE_INVALID);
 			}
 		}
 
@@ -247,7 +139,11 @@ void poll_and_publish_gpsd_data(void)
 				lat = f.latitude;
 				lon = f.longitude;
 				alt = f.altHAE;
-				position_changed();
+				dbus_send_va(POSITION_INTERFACE, "PositionChanged",
+					DBUS_TYPE_DOUBLE, &lat,
+					DBUS_TYPE_DOUBLE, &lon,
+					DBUS_TYPE_DOUBLE, &alt,
+					DBUS_TYPE_INVALID);
 			}
 		}
 
@@ -256,7 +152,11 @@ void poll_and_publish_gpsd_data(void)
 				spd = f.speed;
 				trk = f.track;
 				clb = f.climb;
-				course_changed();
+				dbus_send_va(COURSE_INTERFACE, "CourseChanged",
+					DBUS_TYPE_DOUBLE, &spd,
+					DBUS_TYPE_DOUBLE, &trk,
+					DBUS_TYPE_DOUBLE, &clb,
+					DBUS_TYPE_INVALID);
 			}
 		}
 
@@ -269,7 +169,13 @@ void poll_and_publish_gpsd_data(void)
 				eps = f.eps;
 				ept = f.ept;
 				epc = f.epc;
-				accuracy_changed();
+				dbus_send_va(ACCURACY_INTERFACE, "AccuracyChanged",
+					DBUS_TYPE_DOUBLE, &eph,
+					DBUS_TYPE_DOUBLE, &epv,
+					DBUS_TYPE_DOUBLE, &eps,
+					DBUS_TYPE_DOUBLE, &ept,
+					DBUS_TYPE_DOUBLE, &epc,
+					DBUS_TYPE_INVALID);
 			}
 		}
 	}
