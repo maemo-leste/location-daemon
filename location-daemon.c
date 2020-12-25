@@ -83,7 +83,6 @@ void usage(void)
 void fixstatus_changed(void)
 {
 	DBusMessage *msg;
-	DBusMessageIter args;
 	dbus_uint32_t serial = 0;
 
 	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, DEVICE_INTERFACE,
@@ -93,8 +92,8 @@ void fixstatus_changed(void)
 		return;
 	}
 
-	dbus_message_iter_init_append(msg, &args);
-	if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_INT32, &mode)) {
+	if (!dbus_message_append_args(msg, DBUS_TYPE_INT32, &mode,
+		DBUS_TYPE_INVALID)) {
 		fprintf(stderr, "fixstatus_changed: Out of memory on append\n");
 		return;
 	}
@@ -111,7 +110,6 @@ void fixstatus_changed(void)
 void time_changed(void)
 {
 	DBusMessage *msg;
-	DBusMessageIter args;
 	dbus_uint32_t serial = 0;
 
 	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, TIME_INTERFACE,
@@ -121,8 +119,8 @@ void time_changed(void)
 		return;
 	}
 
-	dbus_message_iter_init_append(msg, &args);
-	if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_DOUBLE, &dtime)) {
+	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, &dtime,
+		DBUS_TYPE_INVALID)) {
 		fprintf(stderr, "time_changed: Out of memory on append\n");
 		return;
 	}
@@ -139,7 +137,6 @@ void time_changed(void)
 void position_changed(void)
 {
 	DBusMessage *msg;
-	DBusMessageIter args;
 	dbus_uint32_t serial = 0;
 
 	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, POSITION_INTERFACE,
@@ -149,8 +146,8 @@ void position_changed(void)
 		return;
 	}
 
-	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, lat,
-		DBUS_TYPE_DOUBLE, lon, DBUS_TYPE_DOUBLE, alt, DBUS_TYPE_INVALID)) {
+	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, &lat,
+		DBUS_TYPE_DOUBLE, &lon, DBUS_TYPE_DOUBLE, &alt, DBUS_TYPE_INVALID)) {
 		fprintf(stderr, "position_changed: Out of memory on append\n");
 		return;
 	}
@@ -167,7 +164,6 @@ void position_changed(void)
 void course_changed(void)
 {
 	DBusMessage *msg;
-	DBusMessageIter args;
 	dbus_uint32_t serial = 0;
 
 	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, COURSE_INTERFACE,
@@ -177,8 +173,8 @@ void course_changed(void)
 		return;
 	}
 
-	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, spd,
-		DBUS_TYPE_DOUBLE, trk, DBUS_TYPE_DOUBLE, clb, DBUS_TYPE_INVALID)) {
+	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, &spd,
+		DBUS_TYPE_DOUBLE, &trk, DBUS_TYPE_DOUBLE, &clb, DBUS_TYPE_INVALID)) {
 		fprintf(stderr, "course_changed: Out of memory on append\n");
 		return;
 	}
@@ -195,7 +191,6 @@ void course_changed(void)
 void accuracy_changed(void)
 {
 	DBusMessage *msg;
-	DBusMessageIter args;
 	dbus_uint32_t serial = 0;
 
 	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, ACCURACY_INTERFACE,
@@ -205,8 +200,10 @@ void accuracy_changed(void)
 		return;
 	}
 
-	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, spd,
-		DBUS_TYPE_DOUBLE, trk, DBUS_TYPE_DOUBLE, clb, DBUS_TYPE_INVALID)) {
+	if (!dbus_message_append_args(msg, DBUS_TYPE_DOUBLE, &eph,
+		DBUS_TYPE_DOUBLE, &epv, DBUS_TYPE_DOUBLE, &eps,
+		DBUS_TYPE_DOUBLE, &eps, DBUS_TYPE_DOUBLE, &ept,
+		DBUS_TYPE_INVALID)) {
 		fprintf(stderr, "accuracy_changed: Out of memory on append\n");
 		return;
 	}
@@ -291,6 +288,8 @@ int main(int argc, char *argv[])
 	default:
 		usage();
 	} ARGEND;
+
+	dbus_error_init(&err);
 
 	dbus = dbus_bus_get(DBUS_BUS_SYSTEM, &err);
 	if (dbus_error_is_set(&err)) {
