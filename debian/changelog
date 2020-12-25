@@ -1,0 +1,5 @@
+location-daemon (0.1-1) unstable; urgency=medium
+
+  * Initial Leste packaging
+
+ -- Ivan J. <parazyd@dyne.org>  Fri, 25 Dec 2020 18:08:10 +0100

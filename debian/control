@@ -1,0 +1,13 @@
+Source: location-daemon
+Priority: optional
+Section: libs
+Maintainer: Ivan J. <parazyd@dyne.org>
+Build-Depends:
+ debhelper (>= 10),
+ libdbus-1-dev,
+ libgps-dev (>= 3.20)
+
+Package: location-daemon
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, gpsd
+Description: Daemon for controlling gpsd and exporting data on dbus
