@@ -18,6 +18,7 @@
  */
 #include <errno.h>
 #include <math.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,11 +47,13 @@
 
 /* function declarations */
 static void usage(void);
+static void sighandler(int);
 static void dbus_send_va(const char *, const char *, int, ...);
 static void poll_and_publish_gpsd_data(void);
 
 /* variables */
 char *argv0;
+int running = 1;
 DBusConnection *dbus;
 struct gps_data_t gpsdata;
 int sats_visible = 0;
@@ -75,6 +78,18 @@ void usage(void)
 	printf("Usage: %s [-t N]\n", argv0);
 	printf("\t-t N:\tgpsd polling interval in seconds\n");
 	exit(1);
+}
+
+void sighandler(int sig)
+{
+	switch (sig) {
+	case SIGINT:
+	case SIGTERM:
+	case SIGKILL:
+		fprintf(stderr, "Caught %s\n", strsignal(sig));
+		running = 0;
+		break;
+	}
 }
 
 void dbus_send_va(const char *interface, const char *sig, int f, ...)
@@ -222,6 +237,10 @@ int main(int argc, char *argv[])
 		usage();
 	} ARGEND;
 
+	signal(SIGINT, sighandler);
+	signal(SIGTERM, sighandler);
+	signal(SIGKILL, sighandler);
+
 	dbus_error_init(&err);
 
 	dbus = dbus_bus_get(DBUS_BUS_SYSTEM, &err);
@@ -251,8 +270,7 @@ int main(int argc, char *argv[])
 
 	(void) gps_stream(&gpsdata, WATCH_ENABLE, NULL);
 
-	while (1) {
-		/* TODO: loop until caught signal or something */
+	while (running) {
 		poll_and_publish_gpsd_data();
 		sleep(interval);
 	}
