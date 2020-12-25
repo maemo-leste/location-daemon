@@ -21,12 +21,6 @@ OBJ = ${SRC:.c=.o}
 
 all: location-daemon
 
-options:
-	@echo ${NAME} build options:
-	@echo "CFLAGS   = ${LOCATIONDAEMON_CFLAGS}"
-	@echo "LDFLAGS  = ${LOCATIONDAEMON_LDFLAGS}"
-	@echo "CC       = ${CC}"
-
 .c.o:
 	${CC} -c ${LOCATIONDAEMON_CFLAGS} ${LOCATIONDAEMON_CPPFLAGS} $<
 
@@ -49,4 +43,4 @@ install: all
 uninstall:
 	rm -f ${DESTDIR}${PREFIX}/sbin/${BIN}
 
-.PHONY: all options clean install uninstall
+.PHONY: all clean install uninstall
