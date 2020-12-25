@@ -20,6 +20,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <dbus/dbus.h>
@@ -29,7 +30,6 @@
 
 /* macros */
 #define TSTONS(ts) ((double)((ts).tv_sec + ((ts).tv_nsec / 1e9)))
-#define nelem(x) (sizeof (x) / sizeof *(x))
 
 /* enums */
 #define GPSD_HOST "localhost"
@@ -53,6 +53,8 @@ static void poll_and_publish_gpsd_data(void);
 char *argv0;
 DBusConnection *dbus;
 struct gps_data_t gpsdata;
+int sats_visible = 0;
+struct satellite_t skyview[MAXCHANNELS];
 int mode = MODE_NOT_SEEN;
 double dtime = NAN;
 double ept = NAN;
@@ -122,6 +124,29 @@ void poll_and_publish_gpsd_data(void)
 			dbus_send_va(DEVICE_INTERFACE, "FixStatusChanged",
 				DBUS_TYPE_INT32, &mode,
 				DBUS_TYPE_INVALID);
+		}
+
+		if (sats_visible != gpsdata.satellites_visible)
+			sats_visible = gpsdata.satellites_visible;
+
+		if (sats_visible > 0) {
+			int c = 0;
+			for (int i = 0; i < sats_visible; i++) {
+				if (gpsdata.skyview[i].ss != skyview[i].ss
+					|| gpsdata.skyview[i].used != skyview[i].used
+					|| gpsdata.skyview[i].PRN != skyview[i].PRN
+					|| gpsdata.skyview[i].elevation != skyview[i].elevation
+					|| gpsdata.skyview[i].azimuth != skyview[i].azimuth) {
+					c = 1;
+					memcpy(&gpsdata.skyview[i], &skyview[i],
+						sizeof(struct satellite_t));
+				}
+			}
+
+			if (c) {
+				/* TODO: Decide how to publish them on dbus */
+				fprintf(stderr, "sats changed\n");
+			}
 		}
 
 		if (gpsdata.set & TIME_SET) {
