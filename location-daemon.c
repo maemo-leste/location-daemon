@@ -185,21 +185,23 @@ void poll_and_publish_gpsd_data(void)
 			}
 		}
 
-		if (isfinite(f.eph) || isfinite(f.epv) || isfinite(f.eps)
-			|| isfinite(f.ept) || isfinite(f.epc)) {
-			if (eph != f.eph || epv != f.epv || eps != f.eps
-				|| ept != f.ept || epc != f.epc) {
-				eph = f.eph;
-				epv = f.epv;
-				eps = f.eps;
-				ept = f.ept;
-				epc = f.epc;
+		if (isfinite(f.ept) || isfinite(f.epv) || isfinite(f.epd)
+			|| isfinite(f.eps) || isfinite(f.epc) || isfinite(f.eph)) {
+			if (ept != f.ept || epv != f.epv || epd != f.epd
+				|| eps != f.eps || epc != f.epc || eph != f.eph) {
+				ept = f.ept;  /* Expected time uncertainty, seconds */
+				epv = f.epv;  /* Vertical pos uncertainty, meters */
+				epd = f.epd;  /* Track uncertainty, degrees */
+				eps = f.eps;  /* Speed uncertainty, meters/sec */
+				epc = f.epc;  /* Vertical speed uncertainty */
+				eph = f.eph;  /* Horizontal pos uncertainty (2D) */
 				dbus_send_va(ACCURACY_INTERFACE, "AccuracyChanged",
-					DBUS_TYPE_DOUBLE, &eph,
-					DBUS_TYPE_DOUBLE, &epv,
-					DBUS_TYPE_DOUBLE, &eps,
 					DBUS_TYPE_DOUBLE, &ept,
+					DBUS_TYPE_DOUBLE, &epv,
+					DBUS_TYPE_DOUBLE, &epd,
+					DBUS_TYPE_DOUBLE, &eps,
 					DBUS_TYPE_DOUBLE, &epc,
+					DBUS_TYPE_DOUBLE, &eph,
 					DBUS_TYPE_INVALID);
 			}
 		}
