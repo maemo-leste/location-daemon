@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <errno.h>
+#include <float.h>
 #include <math.h>
 #include <signal.h>
 #include <stdio.h>
@@ -31,6 +32,7 @@
 
 /* macros */
 #define TSTONS(ts) ((double)((ts).tv_sec + ((ts).tv_nsec / 1e9)))
+#define CMP(a, b)  (fabs(a-b) < 0.000001)
 
 /* enums */
 #define GPSD_HOST "localhost"
@@ -58,19 +60,19 @@ static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
 static struct satellite_t skyview[MAXCHANNELS];
 static int mode = MODE_NOT_SEEN;
-static double dtime = NAN;
-static double ept = NAN;
-static double lat = NAN;
-static double lon = NAN;
-static double eph = NAN;
-static double alt = NAN;
-static double epv = NAN;
-static double trk = NAN;
-static double epd = NAN;
-static double spd = NAN;
-static double eps = NAN;
-static double clb = NAN;
-static double epc = NAN;
+static double dtime = 0.0/0.0;
+static double ept = 0.0/0.0;
+static double lat = 0.0/0.0;
+static double lon = 0.0/0.0;
+static double eph = 0.0/0.0;
+static double alt = 0.0/0.0;
+static double epv = 0.0/0.0;
+static double trk = 0.0/0.0;
+static double epd = 0.0/0.0;
+static double spd = 0.0/0.0;
+static double eps = 0.0/0.0;
+static double clb = 0.0/0.0;
+static double epc = 0.0/0.0;
 
 void usage(void)
 {
@@ -146,11 +148,11 @@ void poll_and_publish_gpsd_data(void)
 		if (gpsdata.satellites_visible > 0) {
 			int c = 0;
 			for (int i = 0; i < gpsdata.satellites_visible; i++) {
-				if (gpsdata.skyview[i].ss != skyview[i].ss
-					|| gpsdata.skyview[i].used != skyview[i].used
-					|| gpsdata.skyview[i].PRN != skyview[i].PRN
-					|| gpsdata.skyview[i].elevation != skyview[i].elevation
-					|| gpsdata.skyview[i].azimuth != skyview[i].azimuth) {
+				if ((CMP(gpsdata.skyview[i].ss, skyview[i].ss))
+					|| (gpsdata.skyview[i].used != skyview[i].used)
+					|| (gpsdata.skyview[i].PRN != skyview[i].PRN)
+					|| (CMP(gpsdata.skyview[i].elevation, skyview[i].elevation))
+					|| (CMP(gpsdata.skyview[i].azimuth, skyview[i].azimuth))) {
 					c = 1;
 					memcpy(&gpsdata.skyview[i], &skyview[i],
 						sizeof(struct satellite_t));
@@ -164,8 +166,9 @@ void poll_and_publish_gpsd_data(void)
 		}
 
 		if (gpsdata.set & TIME_SET) {
-			if (dtime != TSTONS(f.time)) {
-				dtime = TSTONS(f.time);
+			double _dt = TSTONS(f.time);
+			if (CMP(dtime, _dt)) {
+				dtime = _dt;
 				dbus_send_va(TIME_INTERFACE, "TimeChanged",
 				DBUS_TYPE_DOUBLE, &dtime,
 				DBUS_TYPE_INVALID);
@@ -174,7 +177,8 @@ void poll_and_publish_gpsd_data(void)
 
 		if ((isfinite(f.latitude) && isfinite(f.longitude))
 			|| isfinite(f.altHAE)) {
-			if (lat != f.latitude || lon != f.longitude || alt != f.altHAE) {
+			if (CMP(lat, f.latitude) || CMP(lon, f.longitude)
+				|| CMP(alt, f.altHAE)) {
 				lat = f.latitude;
 				lon = f.longitude;
 				alt = f.altHAE;
@@ -187,7 +191,7 @@ void poll_and_publish_gpsd_data(void)
 		}
 
 		if (isfinite(f.speed) || isfinite(f.track) || isfinite(f.climb)) {
-			if (spd != f.speed || trk != f.track || clb != f.climb) {
+			if (CMP(spd, f.speed) || CMP(trk, f.track) || CMP(clb, f.climb)) {
 				spd = f.speed;
 				trk = f.track;
 				clb = f.climb;
@@ -201,8 +205,8 @@ void poll_and_publish_gpsd_data(void)
 
 		if (isfinite(f.ept) || isfinite(f.epv) || isfinite(f.epd)
 			|| isfinite(f.eps) || isfinite(f.epc) || isfinite(f.eph)) {
-			if (ept != f.ept || epv != f.epv || epd != f.epd
-				|| eps != f.eps || epc != f.epc || eph != f.eph) {
+			if (CMP(ept, f.ept) || CMP(epv, f.epv) || CMP(epd, f.epd)
+				|| CMP(eps, f.eps) || CMP(epc, f.epc) || CMP(eph, f.eph)) {
 				ept = f.ept;  /* Expected time uncertainty, seconds */
 				epv = f.epv;  /* Vertical pos uncertainty, meters */
 				epd = f.epd;  /* Track uncertainty, degrees */
@@ -230,7 +234,7 @@ int main(int argc, char *argv[])
 
 	ARGBEGIN {
 	case 't':
-		interval = atoi(EARGF(usage()));
+		interval = (unsigned int)atoi(EARGF(usage()));
 		break;
 	default:
 		usage();
