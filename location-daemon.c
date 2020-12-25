@@ -56,7 +56,6 @@ char *argv0;
 static int running = 1;
 static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
-static int sats_visible = 0;
 static struct satellite_t skyview[MAXCHANNELS];
 static int mode = MODE_NOT_SEEN;
 static double dtime = NAN;
@@ -108,17 +107,19 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 
 	if (!dbus_message_append_args_valist(msg, f, var_args)) {
 		fprintf(stderr, "dbus_send_va: %s: out of memory on append\n", sig);
-		return;
+		va_end(var_args);
+		goto out;
 	}
 
 	va_end(var_args);
 
 	if (!dbus_connection_send(dbus, msg, &serial)) {
 		fprintf(stderr, "dbus_send_va: %s: out of memory on send\n", sig);
-		return;
+		goto out;
 	}
 
 	dbus_connection_flush(dbus);
+out:
 	dbus_message_unref(msg);
 }
 
@@ -141,12 +142,9 @@ void poll_and_publish_gpsd_data(void)
 				DBUS_TYPE_INVALID);
 		}
 
-		if (sats_visible != gpsdata.satellites_visible)
-			sats_visible = gpsdata.satellites_visible;
-
-		if (sats_visible > 0) {
+		if (gpsdata.satellites_visible > 0) {
 			int c = 0;
-			for (int i = 0; i < sats_visible; i++) {
+			for (int i = 0; i < gpsdata.satellites_visible; i++) {
 				if (gpsdata.skyview[i].ss != skyview[i].ss
 					|| gpsdata.skyview[i].used != skyview[i].used
 					|| gpsdata.skyview[i].PRN != skyview[i].PRN
