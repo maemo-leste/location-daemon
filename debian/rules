@@ -1,7 +1,4 @@
 #!/usr/bin/make -f
 
-DEB_CFLAGS_MAINT_APPEND += -O2
-export DEB_CFLAGS_MAINT_APPEND
-
 %:
 	dh $@

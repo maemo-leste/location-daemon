@@ -53,25 +53,25 @@ static void poll_and_publish_gpsd_data(void);
 
 /* variables */
 char *argv0;
-int running = 1;
-DBusConnection *dbus;
-struct gps_data_t gpsdata;
-int sats_visible = 0;
-struct satellite_t skyview[MAXCHANNELS];
-int mode = MODE_NOT_SEEN;
-double dtime = NAN;
-double ept = NAN;
-double lat = NAN;
-double lon = NAN;
-double eph = NAN;
-double alt = NAN;
-double epv = NAN;
-double trk = NAN;
-double epd = NAN;
-double spd = NAN;
-double eps = NAN;
-double clb = NAN;
-double epc = NAN;
+static int running = 1;
+static DBusConnection *dbus;
+static struct gps_data_t gpsdata;
+static int sats_visible = 0;
+static struct satellite_t skyview[MAXCHANNELS];
+static int mode = MODE_NOT_SEEN;
+static double dtime = NAN;
+static double ept = NAN;
+static double lat = NAN;
+static double lon = NAN;
+static double eph = NAN;
+static double alt = NAN;
+static double epv = NAN;
+static double trk = NAN;
+static double epd = NAN;
+static double spd = NAN;
+static double eps = NAN;
+static double clb = NAN;
+static double epc = NAN;
 
 void usage(void)
 {
@@ -225,7 +225,7 @@ void poll_and_publish_gpsd_data(void)
 
 int main(int argc, char *argv[])
 {
-	int interval = 1; /* gpsd polling interval in seconds */
+	unsigned int interval = 1; /* gpsd polling interval in seconds */
 	int ret;
 	DBusError err;
 
@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 		break;
 	default:
 		usage();
-	} ARGEND;
+	} ARGEND
 
 	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
