@@ -83,8 +83,9 @@ void sighandler(int sig)
 {
 	switch (sig) {
 	case SIGINT:
-	case SIGTERM:
-	case SIGKILL:
+	case SIGHUP:
+	case SIGQUIT:
+	case SIGPIPE:
 		fprintf(stderr, "Caught %s\n", strsignal(sig));
 		running = 0;
 		break;
@@ -235,9 +236,10 @@ int main(int argc, char *argv[])
 		usage();
 	} ARGEND
 
+	signal(SIGHUP, sighandler);
 	signal(SIGINT, sighandler);
-	signal(SIGTERM, sighandler);
-	signal(SIGKILL, sighandler);
+	signal(SIGQUIT, sighandler);
+	signal(SIGPIPE, sighandler);
 
 	dbus_error_init(&err);
 
