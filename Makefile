@@ -1,6 +1,7 @@
 .POSIX:
 
 NAME = location-daemon
+DBUS_SERVICE = org.maemo.LocationDaemon.service
 
 PREFIX = /usr
 
@@ -39,8 +40,11 @@ clean:
 
 install: all
 	mkdir -p ${DESTDIR}${PREFIX}/sbin
+	mkdir -p ${DESTDIR}${PREFIX}/share/dbus-1/services
 	cp -f ${BIN} ${DESTDIR}${PREFIX}/sbin
 	chmod 755 ${DESTDIR}${PREFIX}/sbin/${BIN}
+	cp -f ${DBUS_SERVICE} ${DESTDIR}${PREFIX}/share/dbus-1/services
+	chmod 644 ${DESTDIR}${PREFIX}/share/dbus-1/services/${DBUS_SERVICE}
 
 uninstall:
 	rm -f ${DESTDIR}${PREFIX}/sbin/${BIN}
