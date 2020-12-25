@@ -35,8 +35,8 @@
 #define GPSD_HOST "localhost"
 #define GPSD_PORT "2947"
 
-#define DBUS_OBJECT_ROOT     "/org/freedesktop/Gypsy"
-#define DBUS_SERVICE         "org.freedesktop.Gypsy"
+#define DBUS_OBJECT_ROOT     "/org/maemo/LocationDaemon"
+#define DBUS_SERVICE         "org.maemo.LocationDaemon"
 #define DEVICE_INTERFACE     DBUS_SERVICE".Device"
 #define ACCURACY_INTERFACE   DBUS_SERVICE".Accuracy"
 #define COURSE_INTERFACE     DBUS_SERVICE".Course"
