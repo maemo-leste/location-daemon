@@ -38,11 +38,11 @@ clean:
 	rm -f ${BIN} ${OBJ}
 
 install: all
-	mkdir -p ${DESTDIR}${PREFIX}/bin
-	cp -f ${BIN} ${DESTDIR}${PREFIX}/bin
-	chmod 755 ${DESTDIR}${PREFIX}/bin/${BIN}
+	mkdir -p ${DESTDIR}${PREFIX}/sbin
+	cp -f ${BIN} ${DESTDIR}${PREFIX}/sbin
+	chmod 755 ${DESTDIR}${PREFIX}/sbin/${BIN}
 
 uninstall:
-	rm -f ${DESTDIR}${PREFIX}/bin/${BIN}
+	rm -f ${DESTDIR}${PREFIX}/sbin/${BIN}
 
 .PHONY: all options clean install uninstall
