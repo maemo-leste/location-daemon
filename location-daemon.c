@@ -273,7 +273,8 @@ int main(int argc, char *argv[])
 
 	dbus_error_init(&err);
 
-	dbus = dbus_bus_get(DBUS_BUS_SYSTEM, &err);
+	/* dbus = dbus_bus_get(DBUS_BUS_SYSTEM, &err); */
+	dbus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &err);
 	if (dbus_error_is_set(&err)) {
 		fprintf(stderr, "DBus connection error (%s)\n", err.message);
 		return 1;
