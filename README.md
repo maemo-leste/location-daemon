@@ -13,10 +13,10 @@ Spec
 ### `org.maemo.LocationDaemon.Device`
 
 * Signal: `FixStatusChanged`
-* Value type: `DBUS_TYPE_INT32`
+* Value type: `DBUS_TYPE_BYTE`
 * Value alias: `mode`
 
-Will contain an integer (0, 1, 2, or 3) which translate to `MODE_NOT_SEEN`,
+Contains a byte: 0, 1, 2, or 3, which translates to `MODE_NOT_SEEN`,
 `MODE_NO_FIX`, `MODE_2D`, and `MODE_3D`, respectively.
 
 

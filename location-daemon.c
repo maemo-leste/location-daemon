@@ -151,8 +151,7 @@ void poll_and_publish_gpsd_data(void)
 	if (mode != f->mode) {
 		mode = f->mode;
 		dbus_send_va(DEVICE_INTERFACE, "FixStatusChanged",
-			DBUS_TYPE_INT32, &mode,
-			DBUS_TYPE_INVALID);
+			DBUS_TYPE_BYTE, &mode, DBUS_TYPE_INVALID);
 	}
 
 	if (gpsdata.satellites_visible > 0) {
