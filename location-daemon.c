@@ -30,9 +30,6 @@
 
 #include "arg.h"
 
-/* macros */
-#define TSTONS(ts) ((double)((ts)->tv_sec + ((ts)->tv_nsec / 1e9)))
-
 /* enums */
 #define GPSD_HOST "localhost"
 #define GPSD_PORT "2947"
@@ -60,7 +57,6 @@ static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
 static struct satellite_t skyview[MAXCHANNELS];
 static int mode = MODE_NOT_SEEN;
-static double dtime = 0.0/0.0;
 static double ept = 0.0/0.0;
 static double lat = 0.0/0.0;
 static double lon = 0.0/0.0;
@@ -181,17 +177,9 @@ void poll_and_publish_gpsd_data(void)
 
 	/* Time updates on every iteration, so there is no need for checks */
 	if (gpsdata.set & TIME_SET) {
-		double _dt = TSTONS(&f->time);
-		/* A problem I've noticed happens in DBus, where this doesn't get
-		 * properly translated (at least on 32bit ARM):
-		 * location-daemon: 1608941275.000000
-		 * dbus message: 1.60894e+09
-		 * location-daemon: 1608941294.000000
-		 * dbus message: 1.60894e+09
-		 */
-		dtime = _dt;
 		dbus_send_va(TIME_INTERFACE, "TimeChanged",
-		DBUS_TYPE_DOUBLE, &dtime,
+		DBUS_TYPE_INT64, &f->time.tv_sec,
+		DBUS_TYPE_INT64, &f->time.tv_nsec,
 		DBUS_TYPE_INVALID);
 	}
 

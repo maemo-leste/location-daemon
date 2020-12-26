@@ -28,10 +28,10 @@ TODO
 ### `org.maemo.LocationDaemon.Time`
 
 * Signal: `TimeChanged`
-* Value type: `DBUS_TYPE_DOUBLE`
-* Value alias: `dtime`
+* Value types: `DBUS_TYPE_INT64`, `DBUS_TYPE_INT64`
+* Value aliases: `tv_sec`, `tv_nsec`
 
-Contains the current time in form of a double.
+Contains the current time in form of timespec, split into two args.
 
 
 ### `org.maemo.LocationDaemon.Position`
