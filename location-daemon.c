@@ -57,18 +57,18 @@ static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
 static struct satellite_t skyview[MAXCHANNELS];
 static int mode = MODE_NOT_SEEN;
-static double ept = 0.0/0.0;
-static double lat = 0.0/0.0;
-static double lon = 0.0/0.0;
-static double eph = 0.0/0.0;
-static double alt = 0.0/0.0;
-static double epv = 0.0/0.0;
-static double trk = 0.0/0.0;
-static double epd = 0.0/0.0;
-static double spd = 0.0/0.0;
-static double eps = 0.0/0.0;
-static double clb = 0.0/0.0;
-static double epc = 0.0/0.0;
+static double ept = 0.0 / 0.0;
+static double lat = 0.0 / 0.0;
+static double lon = 0.0 / 0.0;
+static double eph = 0.0 / 0.0;
+static double alt = 0.0 / 0.0;
+static double epv = 0.0 / 0.0;
+static double trk = 0.0 / 0.0;
+static double epd = 0.0 / 0.0;
+static double spd = 0.0 / 0.0;
+static double eps = 0.0 / 0.0;
+static double clb = 0.0 / 0.0;
+static double epc = 0.0 / 0.0;
 
 void usage(void)
 {
@@ -116,7 +116,8 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 	va_start(var_args, f);
 
 	if (!dbus_message_append_args_valist(msg, f, var_args)) {
-		fprintf(stderr, "dbus_send_va: %s: out of memory on append\n", sig);
+		fprintf(stderr, "dbus_send_va: %s: out of memory on append\n",
+			sig);
 		va_end(var_args);
 		goto out;
 	}
@@ -124,12 +125,13 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 	va_end(var_args);
 
 	if (!dbus_connection_send(dbus, msg, &serial)) {
-		fprintf(stderr, "dbus_send_va: %s: out of memory on send\n", sig);
+		fprintf(stderr, "dbus_send_va: %s: out of memory on send\n",
+			sig);
 		goto out;
 	}
 
 	dbus_connection_flush(dbus);
-out:
+ out:
 	dbus_message_unref(msg);
 }
 
@@ -151,20 +153,22 @@ void poll_and_publish_gpsd_data(void)
 	if (mode != f->mode) {
 		mode = f->mode;
 		dbus_send_va(DEVICE_INTERFACE, "FixStatusChanged",
-			DBUS_TYPE_BYTE, &mode, DBUS_TYPE_INVALID);
+			     DBUS_TYPE_BYTE, &mode, DBUS_TYPE_INVALID);
 	}
 
 	if (gpsdata.satellites_visible > 0) {
 		int c = 0;
 		for (int i = 0; i < gpsdata.satellites_visible; i++) {
 			if (!isequal(gpsdata.skyview[i].ss, skyview[i].ss)
-				|| gpsdata.skyview[i].used != skyview[i].used
-				|| gpsdata.skyview[i].PRN  != skyview[i].PRN
-				|| !isequal(gpsdata.skyview[i].elevation, skyview[i].elevation)
-				|| !isequal(gpsdata.skyview[i].azimuth, skyview[i].azimuth)) {
+			    || gpsdata.skyview[i].used != skyview[i].used
+			    || gpsdata.skyview[i].PRN != skyview[i].PRN
+			    || !isequal(gpsdata.skyview[i].elevation,
+					skyview[i].elevation)
+			    || !isequal(gpsdata.skyview[i].azimuth,
+					skyview[i].azimuth)) {
 				c = 1;
 				memcpy(&gpsdata.skyview[i], &skyview[i],
-					sizeof(struct satellite_t));
+				       sizeof(struct satellite_t));
 			}
 		}
 
@@ -177,71 +181,68 @@ void poll_and_publish_gpsd_data(void)
 	/* Time updates on every iteration, so there is no need for checks */
 	if (gpsdata.set & TIME_SET) {
 		dbus_send_va(TIME_INTERFACE, "TimeChanged",
-		DBUS_TYPE_INT64, &f->time.tv_sec,
-		DBUS_TYPE_INT64, &f->time.tv_nsec,
-		DBUS_TYPE_INVALID);
+			     DBUS_TYPE_INT64, &f->time.tv_sec,
+			     DBUS_TYPE_INT64, &f->time.tv_nsec,
+			     DBUS_TYPE_INVALID);
 	}
 
 	if (isfinite(f->latitude) || isfinite(f->longitude)
-		|| isfinite(f->altMSL)) {
+	    || isfinite(f->altMSL)) {
 		if (!isequal(lat, f->latitude) || !isequal(lon, f->longitude)
-			|| !isequal(alt, f->altMSL)
-			|| !isfinite(lat) || !isfinite(lon) || !isfinite(alt)) {
+		    || !isequal(alt, f->altMSL)
+		    || !isfinite(lat) || !isfinite(lon) || !isfinite(alt)) {
 
 			lat = f->latitude;
 			lon = f->longitude;
 			alt = f->altMSL;
 			dbus_send_va(POSITION_INTERFACE, "PositionChanged",
-				DBUS_TYPE_DOUBLE, &lat,
-				DBUS_TYPE_DOUBLE, &lon,
-				DBUS_TYPE_DOUBLE, &alt,
-				DBUS_TYPE_INVALID);
+				     DBUS_TYPE_DOUBLE, &lat,
+				     DBUS_TYPE_DOUBLE, &lon,
+				     DBUS_TYPE_DOUBLE, &alt, DBUS_TYPE_INVALID);
 		}
 	}
 
 	if (isfinite(f->speed) || isfinite(f->track) || isfinite(f->climb)) {
 		if (!isequal(spd, f->speed) || !isequal(trk, f->track)
-			|| !isequal(clb, f->climb)
-			|| !isfinite(spd) || !isfinite(trk) || !isfinite(clb)) {
+		    || !isequal(clb, f->climb)
+		    || !isfinite(spd) || !isfinite(trk) || !isfinite(clb)) {
 
 			spd = f->speed;
 			trk = f->track;
 			clb = f->climb;
 			dbus_send_va(COURSE_INTERFACE, "CourseChanged",
-				DBUS_TYPE_DOUBLE, &spd,
-				DBUS_TYPE_DOUBLE, &trk,
-				DBUS_TYPE_DOUBLE, &clb,
-				DBUS_TYPE_INVALID);
+				     DBUS_TYPE_DOUBLE, &spd,
+				     DBUS_TYPE_DOUBLE, &trk,
+				     DBUS_TYPE_DOUBLE, &clb, DBUS_TYPE_INVALID);
 		}
 	}
 
 	if (isfinite(f->ept) || isfinite(f->epv) || isfinite(f->epd)
-		|| isfinite(f->eps) || isfinite(f->epc) || isfinite(f->eph)) {
+	    || isfinite(f->eps) || isfinite(f->epc) || isfinite(f->eph)) {
 		if (!isequal(ept, f->ept) || !isequal(epv, f->epv)
-			|| !isequal(epd, f->epd) || !isequal(eps, f->eps)
-			|| !isequal(epc, f->epc) || !isequal(eph, f->eph)) {
+		    || !isequal(epd, f->epd) || !isequal(eps, f->eps)
+		    || !isequal(epc, f->epc) || !isequal(eph, f->eph)) {
 
-			ept = f->ept;  /* Expected time uncertainty, seconds */
-			epv = f->epv;  /* Vertical pos uncertainty, meters */
-			epd = f->epd;  /* Track uncertainty, degrees */
-			eps = f->eps;  /* Speed uncertainty, meters/sec */
-			epc = f->epc;  /* Vertical speed uncertainty */
-			eph = f->eph;  /* Horizontal pos uncertainty (2D) */
+			ept = f->ept;	/* Expected time uncertainty, seconds */
+			epv = f->epv;	/* Vertical pos uncertainty, meters */
+			epd = f->epd;	/* Track uncertainty, degrees */
+			eps = f->eps;	/* Speed uncertainty, meters/sec */
+			epc = f->epc;	/* Vertical speed uncertainty */
+			eph = f->eph;	/* Horizontal pos uncertainty (2D) */
 			dbus_send_va(ACCURACY_INTERFACE, "AccuracyChanged",
-				DBUS_TYPE_DOUBLE, &ept,
-				DBUS_TYPE_DOUBLE, &epv,
-				DBUS_TYPE_DOUBLE, &epd,
-				DBUS_TYPE_DOUBLE, &eps,
-				DBUS_TYPE_DOUBLE, &epc,
-				DBUS_TYPE_DOUBLE, &eph,
-				DBUS_TYPE_INVALID);
+				     DBUS_TYPE_DOUBLE, &ept,
+				     DBUS_TYPE_DOUBLE, &epv,
+				     DBUS_TYPE_DOUBLE, &epd,
+				     DBUS_TYPE_DOUBLE, &eps,
+				     DBUS_TYPE_DOUBLE, &epc,
+				     DBUS_TYPE_DOUBLE, &eph, DBUS_TYPE_INVALID);
 		}
 	}
 }
 
 int main(int argc, char *argv[])
 {
-	unsigned int interval = 1; /* gpsd polling interval in seconds */
+	unsigned int interval = 1;	/* gpsd polling interval in seconds */
 	int ret;
 	DBusError err;
 
@@ -251,7 +252,8 @@ int main(int argc, char *argv[])
 		break;
 	default:
 		usage();
-	} ARGEND;
+	}
+	ARGEND;
 
 	signal(SIGHUP, sighandler);
 	signal(SIGINT, sighandler);
@@ -271,7 +273,7 @@ int main(int argc, char *argv[])
 		return 1;
 
 	ret = dbus_bus_request_name(dbus, DBUS_SERVICE,
-		DBUS_NAME_FLAG_REPLACE_EXISTING, &err);
+				    DBUS_NAME_FLAG_REPLACE_EXISTING, &err);
 	if (dbus_error_is_set(&err)) {
 		fprintf(stderr, "Name error (%s)\n", err.message);
 		dbus_error_free(&err);
@@ -286,15 +288,15 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	(void) gps_stream(&gpsdata, WATCH_ENABLE, NULL);
+	(void)gps_stream(&gpsdata, WATCH_ENABLE, NULL);
 
 	while (running) {
 		poll_and_publish_gpsd_data();
 		sleep(interval);
 	}
 
-	(void) gps_stream(&gpsdata, WATCH_DISABLE, NULL);
-	(void) gps_close(&gpsdata);
+	(void)gps_stream(&gpsdata, WATCH_DISABLE, NULL);
+	(void)gps_close(&gpsdata);
 
 	return 0;
 }
