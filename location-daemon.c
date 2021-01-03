@@ -36,9 +36,9 @@
 
 #define DBUS_OBJECT_ROOT     "/org/maemo/LocationDaemon"
 #define DBUS_SERVICE         "org.maemo.LocationDaemon"
-#define DEVICE_INTERFACE     DBUS_SERVICE".Device"
 #define ACCURACY_INTERFACE   DBUS_SERVICE".Accuracy"
 #define COURSE_INTERFACE     DBUS_SERVICE".Course"
+#define DEVICE_INTERFACE     DBUS_SERVICE".Device"
 #define POSITION_INTERFACE   DBUS_SERVICE".Position"
 #define SATELLITE_INTERFACE  DBUS_SERVICE".Satellite"
 #define TIME_INTERFACE       DBUS_SERVICE".Time"
@@ -116,8 +116,7 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 	va_start(var_args, f);
 
 	if (!dbus_message_append_args_valist(msg, f, var_args)) {
-		fprintf(stderr, "dbus_send_va: %s: out of memory on append\n",
-			sig);
+		fprintf(stderr, "dbus_send_va: %s: out of memory on append\n", sig);
 		va_end(var_args);
 		goto out;
 	}
@@ -125,8 +124,7 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 	va_end(var_args);
 
 	if (!dbus_connection_send(dbus, msg, &serial)) {
-		fprintf(stderr, "dbus_send_va: %s: out of memory on send\n",
-			sig);
+		fprintf(stderr, "dbus_send_va: %s: out of memory on send\n", sig);
 		goto out;
 	}
 
@@ -264,7 +262,6 @@ int main(int argc, char *argv[])
 
 	dbus_error_init(&err);
 
-	/* dbus = dbus_bus_get(DBUS_BUS_SYSTEM, &err); */
 	dbus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &err);
 	if (dbus_error_is_set(&err)) {
 		fprintf(stderr, "DBus connection error (%s)\n", err.message);
@@ -280,6 +277,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Name error (%s)\n", err.message);
 		dbus_error_free(&err);
 	}
+
 	if (DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER != ret) {
 		return 1;
 	}
