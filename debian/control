@@ -9,5 +9,5 @@ Build-Depends:
 
 Package: location-daemon
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, gpsd
+Depends: ${shlibs:Depends}, ${misc:Depends}, gpsd (>= 3.20)
 Description: Daemon for controlling gpsd and exporting data on dbus
