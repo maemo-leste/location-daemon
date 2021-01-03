@@ -55,7 +55,7 @@ char *argv0;
 static int running = 1;
 static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
-static struct satellite_t skyview[MAXCHANNELS];
+/* static struct satellite_t skyview[MAXCHANNELS]; */
 static int mode = MODE_NOT_SEEN;
 static double ept = 0.0 / 0.0;
 static double lat = 0.0 / 0.0;
@@ -156,6 +156,7 @@ void poll_and_publish_gpsd_data(void)
 			     DBUS_TYPE_BYTE, &mode, DBUS_TYPE_INVALID);
 	}
 
+	/*
 	if (gpsdata.satellites_visible > 0) {
 		int c = 0;
 		for (int i = 0; i < gpsdata.satellites_visible; i++) {
@@ -172,11 +173,12 @@ void poll_and_publish_gpsd_data(void)
 			}
 		}
 
+		TODO: Decide how to publish satellites on dbus
 		if (c) {
-			/* TODO: Decide how to publish satellites on dbus */
 			fprintf(stderr, "sats changed\n");
 		}
 	}
+	*/
 
 	/* Time updates on every iteration, so there is no need for checks */
 	if (gpsdata.set & TIME_SET) {
