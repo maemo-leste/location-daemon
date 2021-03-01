@@ -6,6 +6,9 @@ Build-Depends:
  debhelper-compat (= 12),
  libdbus-1-dev,
  libgps-dev (>= 3.20)
+Standards-Version: 4.3.0
+Vcs-Git: https://github.com/maemo-leste/location-daemon
+Vcs-Browser: https://github.com/maemo-leste/location-daemon
 
 Package: location-daemon
 Architecture: any
