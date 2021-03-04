@@ -8,8 +8,8 @@ PREFIX = /usr
 LIBGPS_CFLAGS = $(shell pkg-config --cflags libgps)
 LIBGPS_LIBS = $(shell pkg-config --libs libgps)
 
-DBUS_CFLAGS = $(shell pkg-config --cflags dbus-1)
-DBUS_LIBS = $(shell pkg-config --libs dbus-1)
+DBUS_CFLAGS = $(shell pkg-config --cflags dbus-1 dbus-glib-1)
+DBUS_LIBS = $(shell pkg-config --libs dbus-1 dbus-glib-1)
 
 GLIB_CFLAGS = $(shell pkg-config --cflags glib-2.0)
 GLIB_LIBS = $(shell pkg-config --libs glib-2.0)

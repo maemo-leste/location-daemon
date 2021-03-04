@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include <dbus/dbus.h>
+#include <dbus/dbus-glib-lowlevel.h>
 #include <glib.h>
 #include <glib-unix.h>
 #include <gps.h>
@@ -37,14 +38,15 @@
 
 #define FLOCK_PATH "/run/lock/location-daemon.lock"
 
-#define DBUS_OBJECT_ROOT     "/org/maemo/LocationDaemon"
-#define DBUS_SERVICE         "org.maemo.LocationDaemon"
-#define ACCURACY_INTERFACE   DBUS_SERVICE".Accuracy"
-#define COURSE_INTERFACE     DBUS_SERVICE".Course"
-#define DEVICE_INTERFACE     DBUS_SERVICE".Device"
-#define POSITION_INTERFACE   DBUS_SERVICE".Position"
-#define SATELLITE_INTERFACE  DBUS_SERVICE".Satellite"
-#define TIME_INTERFACE       DBUS_SERVICE".Time"
+#define DAEMON_DBUS_NAME     "org.maemo.LocationDaemon"
+#define DAEMON_DBUS_PATH     "/org/maemo/LocationDaemon"
+#define RUNNING_INTERFACE    DAEMON_DBUS_NAME".Running"
+#define ACCURACY_INTERFACE   DAEMON_DBUS_NAME".Accuracy"
+#define COURSE_INTERFACE     DAEMON_DBUS_NAME".Course"
+#define DEVICE_INTERFACE     DAEMON_DBUS_NAME".Device"
+#define POSITION_INTERFACE   DAEMON_DBUS_NAME".Position"
+#define SATELLITE_INTERFACE  DAEMON_DBUS_NAME".Satellite"
+#define TIME_INTERFACE       DAEMON_DBUS_NAME".Time"
 
 /* function declarations */
 static int sighandler(gpointer);
@@ -58,6 +60,7 @@ static GMainLoop *mainloop;
 static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
 /* static struct satellite_t skyview[MAXCHANNELS]; */
+static int running = 0;
 static int mode = MODE_NOT_SEEN;
 static double ept = 0.0 / 0.0;
 static double lat = 0.0 / 0.0;
@@ -105,7 +108,7 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 	DBusMessage *msg;
 	dbus_uint32_t serial = 0;
 
-	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, interface, sig);
+	msg = dbus_message_new_signal(DAEMON_DBUS_PATH, interface, sig);
 	if (msg == NULL) {
 		g_warning("dbus_send_double: %s message NULL", sig);
 		return;
@@ -266,45 +269,43 @@ int main(int argc, char *argv[])
 	g_unix_signal_add(SIGINT, sighandler, GINT_TO_POINTER(SIGINT));
 	g_unix_signal_add(SIGTERM, sighandler, GINT_TO_POINTER(SIGTERM));
 
-	dbus_error_init(&err);
-
-	dbus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &err);
-	if (dbus_error_is_set(&err)) {
-		g_error("DBus connection error (%s)", err.message);
+	dbus = dbus_bus_get(DBUS_BUS_SYSTEM, NULL);
+	if (!dbus) {
+		g_critical("Failed to init DBus");
 		return 1;
 	}
 
-	if (dbus == NULL)
-		return 1;
-
-	ret = dbus_bus_request_name(dbus, DBUS_SERVICE,
-				    DBUS_NAME_FLAG_REPLACE_EXISTING, &err);
-	if (dbus_error_is_set(&err)) {
-		g_error("Name error (%s)", err.message);
-		dbus_error_free(&err);
-	}
-
-	if (DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER != ret) {
+	dbus_connection_setup_with_g_main(dbus, NULL);
+	if (dbus_bus_request_name(dbus, DAEMON_DBUS_NAME, 0, NULL) != 1) {
+		g_critical("Failed to register service '%s'. Already running?",
+				DAEMON_DBUS_NAME);
 		return 1;
 	}
 
 	lockfd = open(FLOCK_PATH, O_RDONLY, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
 	if (lockfd < 0) {
-		g_error("open() lockfd: %s", g_strerror(errno));
+		g_critical("open() lockfd: %s", g_strerror(errno));
+		return 1;
 	}
 
 	if (gps_open(GPSD_HOST, GPSD_PORT, &gpsdata)) {
-		g_error("Could not open gpsd socket: %d, %s", errno, gps_errstr(errno));
+		g_critical("Could not open gpsd socket: %s", gps_errstr(errno));
 		return 1;
 	}
 
 	(void)gps_stream(&gpsdata, WATCH_ENABLE, NULL);
 
-	mainloop = g_main_loop_new(context, FALSE);
+	running = 1;
+	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE,
+		&running, DBUS_TYPE_INVALID);
 
 	g_timeout_add_seconds(interval, poll_and_publish_gpsd_data, NULL);
 	g_timeout_add_seconds(15, acquire_flock, GINT_TO_POINTER(lockfd));
 	g_main_loop_run(mainloop);
+
+	running = 0;
+	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE,
+		&running, DBUS_TYPE_INVALID);
 
 	(void)gps_stream(&gpsdata, WATCH_DISABLE, NULL);
 	(void)gps_close(&gpsdata);
