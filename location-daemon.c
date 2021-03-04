@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Ivan J. <parazyd@dyne.org>
+ * Copyright (c) 2020-2021 Ivan J. <parazyd@dyne.org>
  *
  * This file is part of location-daemon
  *
@@ -23,9 +23,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <unistd.h>
 
 #include <dbus/dbus.h>
+#include <glib.h>
+#include <glib-unix.h>
 #include <gps.h>
 
 #include "arg.h"
@@ -33,6 +36,8 @@
 /* enums */
 #define GPSD_HOST "localhost"
 #define GPSD_PORT "2947"
+
+#define FLOCK_PATH "/run/lock/location-daemon.lock"
 
 #define DBUS_OBJECT_ROOT     "/org/maemo/LocationDaemon"
 #define DBUS_SERVICE         "org.maemo.LocationDaemon"
@@ -45,14 +50,15 @@
 
 /* function declarations */
 static void usage(void);
-static void sighandler(int);
+static int sighandler(gpointer);
 static int isequal(double, double);
 static void dbus_send_va(const char *, const char *, int, ...);
-static void poll_and_publish_gpsd_data(void);
+static int poll_and_publish_gpsd_data(gpointer);
+static int acquire_flock(gpointer);
 
 /* variables */
 char *argv0;
-static int running = 1;
+static GMainLoop *mainloop;
 static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
 /* static struct satellite_t skyview[MAXCHANNELS]; */
@@ -77,17 +83,21 @@ void usage(void)
 	exit(1);
 }
 
-void sighandler(int sig)
+int sighandler(gpointer sig)
 {
-	switch (sig) {
+	int s = GPOINTER_TO_INT(sig);
+
+	switch (s) {
 	case SIGINT:
 	case SIGHUP:
-	case SIGQUIT:
-	case SIGPIPE:
-		fprintf(stderr, "Caught %s\n", strsignal(sig));
-		running = 0;
+	case SIGTERM:
+		g_debug("Caught %s", strsignal(s));
+		if (mainloop != NULL)
+			g_main_loop_quit(mainloop);
 		break;
 	}
+
+	return 0;
 }
 
 int isequal(double a, double b)
@@ -108,7 +118,7 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 
 	msg = dbus_message_new_signal(DBUS_OBJECT_ROOT, interface, sig);
 	if (msg == NULL) {
-		fprintf(stderr, "dbus_send_double: %s message NULL\n", sig);
+		g_warning("dbus_send_double: %s message NULL", sig);
 		return;
 	}
 
@@ -116,7 +126,7 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 	va_start(var_args, f);
 
 	if (!dbus_message_append_args_valist(msg, f, var_args)) {
-		fprintf(stderr, "dbus_send_va: %s: out of memory on append\n", sig);
+		g_warning("dbus_send_va: %s: out of memory on append", sig);
 		va_end(var_args);
 		goto out;
 	}
@@ -124,7 +134,7 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 	va_end(var_args);
 
 	if (!dbus_connection_send(dbus, msg, &serial)) {
-		fprintf(stderr, "dbus_send_va: %s: out of memory on send\n", sig);
+		g_warning("dbus_send_va: %s: out of memory on send", sig);
 		goto out;
 	}
 
@@ -133,17 +143,17 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 	dbus_message_unref(msg);
 }
 
-void poll_and_publish_gpsd_data(void)
+int poll_and_publish_gpsd_data(gpointer data)
 {
+	g_message(G_STRFUNC);
 	if (gps_waiting(&gpsdata, 500)) {
 		errno = 0;
 		if (gps_read(&gpsdata, NULL, 0) == -1) {
-			fprintf(stderr, "gpsd read error: %d, %s\n", errno,
-				gps_errstr(errno));
-			return;
+			g_warning("gpsd read error: %d, %s", errno, gps_errstr(errno));
+			return TRUE;
 		}
 	} else {
-		return;
+		return TRUE;
 	}
 
 	struct gps_fix_t *f = &gpsdata.fix;
@@ -238,12 +248,28 @@ void poll_and_publish_gpsd_data(void)
 				     DBUS_TYPE_DOUBLE, &eph, DBUS_TYPE_INVALID);
 		}
 	}
+
+	return TRUE;
+}
+
+int acquire_flock(gpointer lockfd)
+{
+	if (flock(GPOINTER_TO_INT(lockfd), LOCK_EX|LOCK_NB) == 0) {
+		g_debug("Acquired exclusive lock. Exiting.");
+		flock(GPOINTER_TO_INT(lockfd), LOCK_UN);
+		close(GPOINTER_TO_INT(lockfd));
+		unlink(FLOCK_PATH);
+		g_main_loop_quit(mainloop);
+		return FALSE;
+	}
+	return TRUE;
 }
 
 int main(int argc, char *argv[])
 {
 	unsigned int interval = 1;	/* gpsd polling interval in seconds */
-	int ret;
+	GMainContext *context = NULL;
+	int ret, lockfd = -1;
 	DBusError err;
 
 	ARGBEGIN {
@@ -255,16 +281,15 @@ int main(int argc, char *argv[])
 	}
 	ARGEND;
 
-	signal(SIGHUP, sighandler);
-	signal(SIGINT, sighandler);
-	signal(SIGQUIT, sighandler);
-	signal(SIGPIPE, sighandler);
+	g_unix_signal_add(SIGHUP, sighandler, GINT_TO_POINTER(SIGHUP));
+	g_unix_signal_add(SIGINT, sighandler, GINT_TO_POINTER(SIGINT));
+	g_unix_signal_add(SIGTERM, sighandler, GINT_TO_POINTER(SIGTERM));
 
 	dbus_error_init(&err);
 
 	dbus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &err);
 	if (dbus_error_is_set(&err)) {
-		fprintf(stderr, "DBus connection error (%s)\n", err.message);
+		g_error("DBus connection error (%s)", err.message);
 		return 1;
 	}
 
@@ -274,7 +299,7 @@ int main(int argc, char *argv[])
 	ret = dbus_bus_request_name(dbus, DBUS_SERVICE,
 				    DBUS_NAME_FLAG_REPLACE_EXISTING, &err);
 	if (dbus_error_is_set(&err)) {
-		fprintf(stderr, "Name error (%s)\n", err.message);
+		g_error("Name error (%s)", err.message);
 		dbus_error_free(&err);
 	}
 
@@ -282,18 +307,24 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	lockfd = open(FLOCK_PATH, O_RDONLY, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
+	if (lockfd < 0) {
+		g_error("open() lockfd: %s", g_strerror(errno));
+	}
+
 	if (gps_open(GPSD_HOST, GPSD_PORT, &gpsdata)) {
-		fprintf(stderr, "Could not open gpsd socket: %d, %s\n", errno,
-			gps_errstr(errno));
+		g_error("Could not open gpsd socket: %d, %s", errno, gps_errstr(errno));
 		return 1;
 	}
 
 	(void)gps_stream(&gpsdata, WATCH_ENABLE, NULL);
 
-	while (running) {
-		poll_and_publish_gpsd_data();
-		sleep(interval);
-	}
+	mainloop = g_main_loop_new(context, FALSE);
+
+	g_timeout_add_seconds(interval, poll_and_publish_gpsd_data, NULL);
+	g_timeout_add_seconds(15, acquire_flock, GINT_TO_POINTER(lockfd));
+
+	g_main_loop_run(mainloop);
 
 	(void)gps_stream(&gpsdata, WATCH_DISABLE, NULL);
 	(void)gps_close(&gpsdata);

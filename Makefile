@@ -11,9 +11,12 @@ LIBGPS_LIBS = $(shell pkg-config --libs libgps)
 DBUS_CFLAGS = $(shell pkg-config --cflags dbus-1)
 DBUS_LIBS = $(shell pkg-config --libs dbus-1)
 
-LOCATIONDAEMON_CFLAGS = -O2 ${DBUS_CFLAGS} ${LIBGPS_CFLAGS} ${CFLAGS}
+GLIB_CFLAGS = $(shell pkg-config --cflags glib-2.0)
+GLIB_LIBS = $(shell pkg-config --libs glib-2.0)
+
+LOCATIONDAEMON_CFLAGS = -O2 ${DBUS_CFLAGS} ${LIBGPS_CFLAGS} ${GLIB_CFLAGS} ${CFLAGS}
 LOCATIONDAEMON_CPPFLAGS = -D_GNU_SOURCE -Wall -pedantic ${CPPFLAGS}
-LOCATIONDAEMON_LDFLAGS = ${DBUS_LIBS} ${LIBGPS_LIBS} ${LDFLAGS}
+LOCATIONDAEMON_LDFLAGS = ${DBUS_LIBS} ${LIBGPS_LIBS} ${GLIB_LIBS} ${LDFLAGS}
 
 SRC = ${NAME}.c
 BIN = ${NAME}
