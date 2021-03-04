@@ -1,3 +1,4 @@
 [D-BUS Service]
 Name=org.maemo.LocationDaemon
 Exec=/usr/sbin/location-daemon
+User=user
