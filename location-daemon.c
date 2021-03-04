@@ -31,8 +31,6 @@
 #include <glib-unix.h>
 #include <gps.h>
 
-#include "arg.h"
-
 /* enums */
 #define GPSD_HOST "localhost"
 #define GPSD_PORT "2947"
@@ -49,7 +47,6 @@
 #define TIME_INTERFACE       DBUS_SERVICE".Time"
 
 /* function declarations */
-static void usage(void);
 static int sighandler(gpointer);
 static int isequal(double, double);
 static void dbus_send_va(const char *, const char *, int, ...);
@@ -57,7 +54,6 @@ static int poll_and_publish_gpsd_data(gpointer);
 static int acquire_flock(gpointer);
 
 /* variables */
-char *argv0;
 static GMainLoop *mainloop;
 static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
@@ -75,13 +71,6 @@ static double spd = 0.0 / 0.0;
 static double eps = 0.0 / 0.0;
 static double clb = 0.0 / 0.0;
 static double epc = 0.0 / 0.0;
-
-void usage(void)
-{
-	printf("Usage: %s [-t N]\n", argv0);
-	printf("\t-t N:\tgpsd polling interval in seconds\n");
-	exit(1);
-}
 
 int sighandler(gpointer sig)
 {
@@ -267,19 +256,11 @@ int acquire_flock(gpointer lockfd)
 
 int main(int argc, char *argv[])
 {
-	unsigned int interval = 1;	/* gpsd polling interval in seconds */
-	GMainContext *context = NULL;
-	int ret, lockfd = -1;
-	DBusError err;
+	/* gpsd poll interval in seconds. Think about higher resolution. */
+	unsigned int interval = 1;
+	int lockfd = -1;
 
-	ARGBEGIN {
-	case 't':
-		interval = (unsigned int)atoi(EARGF(usage()));
-		break;
-	default:
-		usage();
-	}
-	ARGEND;
+	mainloop = g_main_loop_new(NULL, FALSE);
 
 	g_unix_signal_add(SIGHUP, sighandler, GINT_TO_POINTER(SIGHUP));
 	g_unix_signal_add(SIGINT, sighandler, GINT_TO_POINTER(SIGINT));
@@ -323,7 +304,6 @@ int main(int argc, char *argv[])
 
 	g_timeout_add_seconds(interval, poll_and_publish_gpsd_data, NULL);
 	g_timeout_add_seconds(15, acquire_flock, GINT_TO_POINTER(lockfd));
-
 	g_main_loop_run(mainloop);
 
 	(void)gps_stream(&gpsdata, WATCH_DISABLE, NULL);
