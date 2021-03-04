@@ -1,3 +1,11 @@
+location-daemon (0.3-1) unstable; urgency=medium
+
+  * Fix dbus system-service activation.
+  * Remove usage() function.
+  * Implement flock and convert code to glib.
+
+ -- Ivan J. <parazyd@dyne.org>  Thu, 04 Mar 2021 17:21:17 +0100
+
 location-daemon (0.2-1) unstable; urgency=medium
 
   * Update to dh12.
