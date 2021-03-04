@@ -1,3 +1,10 @@
+location-daemon (0.4-1) unstable; urgency=medium
+
+  * Run the dbus service as user.
+  * Add libglib dependencies.
+
+ -- Ivan J. <parazyd@dyne.org>  Thu, 04 Mar 2021 19:58:50 +0100
+
 location-daemon (0.3-1) unstable; urgency=medium
 
   * Fix dbus system-service activation.
