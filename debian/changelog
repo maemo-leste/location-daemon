@@ -1,3 +1,9 @@
+location-daemon (0.5-1) unstable; urgency=medium
+
+  * Start gpsd via sudoers and initscript.
+
+ -- Ivan J. <parazyd@dyne.org>  Sat, 13 Mar 2021 20:25:23 +0100
+
 location-daemon (0.4-1) unstable; urgency=medium
 
   * Run the dbus service as user.
