@@ -1,0 +1,2 @@
+%users ALL = NOPASSWD: /etc/init.d/gpsd start
+%users ALL = NOPASSWD: /etc/init.d/gpsd stop

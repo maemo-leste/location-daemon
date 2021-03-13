@@ -288,6 +288,16 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	switch (system("sudo /etc/init.d/gpsd start")) {
+	case 0:
+		/* Give time to settle */
+		sleep(1);
+		break;
+	default:
+		g_critical("unable to start gpsd via initscript");
+		return 1;
+	}
+
 	if (gps_open(GPSD_HOST, GPSD_PORT, &gpsdata)) {
 		g_critical("Could not open gpsd socket: %s", gps_errstr(errno));
 		return 1;

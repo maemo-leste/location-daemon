@@ -2,8 +2,10 @@
 
 NAME = location-daemon
 DBUS_SERVICE = org.maemo.LocationDaemon.service
+SUDOERS = location-daemon.sudoers
 
 PREFIX = /usr
+ETCPREFIX = /etc
 
 LIBGPS_CFLAGS = $(shell pkg-config --cflags libgps)
 LIBGPS_LIBS = $(shell pkg-config --libs libgps)
@@ -38,12 +40,17 @@ clean:
 install: all
 	mkdir -p ${DESTDIR}${PREFIX}/sbin
 	mkdir -p ${DESTDIR}${PREFIX}/share/dbus-1/system-services
+	mkdir -p ${DESTDIR}${ETCPREFIX}/sudoers.d
 	cp -f ${BIN} ${DESTDIR}${PREFIX}/sbin
 	chmod 755 ${DESTDIR}${PREFIX}/sbin/${BIN}
 	cp -f ${DBUS_SERVICE} ${DESTDIR}${PREFIX}/share/dbus-1/system-services
 	chmod 644 ${DESTDIR}${PREFIX}/share/dbus-1/system-services/${DBUS_SERVICE}
+	cp -f ${SUDOERS} ${DESTDIR}${ETCPREFIX}/sudoers.d
+	chmod 440 ${DESTDIR}${ETCPREFIX}/sudoers.d/${SUDOERS}
 
 uninstall:
 	rm -f ${DESTDIR}${PREFIX}/sbin/${BIN}
+	rm -f ${DESTDIR}${PREFIX}/share/dbus-1/system-services/${DBUS_SERVICE}
+	rm -f ${DESTDIR}${ETCPREFIX}/sudoers.d/${SUDOERS}
 
 .PHONY: all clean install uninstall
