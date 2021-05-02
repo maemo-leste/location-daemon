@@ -134,7 +134,8 @@ void *poll_gpsd(gpointer data)
 		}
 
 		if (gps_read(&gpsdata, NULL, 0) == -1) {
-			g_warning("gpsd read error: %d, %s", errno, gps_errstr(errno));
+			g_warning("gpsd read error: %d, %s", errno,
+				  gps_errstr(errno));
 			continue;
 		}
 
@@ -146,7 +147,8 @@ void *poll_gpsd(gpointer data)
 		case MODE_2D:
 		case MODE_3D:
 			dbus_send_va(DEVICE_INTERFACE, "FixStatusChanged",
-				DBUS_TYPE_BYTE, &f->mode, DBUS_TYPE_INVALID);
+				     DBUS_TYPE_BYTE, &f->mode,
+				     DBUS_TYPE_INVALID);
 			break;
 		default:
 			continue;
@@ -185,7 +187,7 @@ void *poll_gpsd(gpointer data)
 		}
 
 		if (isfinite(f->latitude) || isfinite(f->longitude)
-				|| isfinite(f->altMSL)) {
+		    || isfinite(f->altMSL)) {
 			g_debug("PositionChanged");
 			dbus_send_va(POSITION_INTERFACE, "PositionChanged",
 				     DBUS_TYPE_DOUBLE, &f->latitude,
@@ -194,7 +196,8 @@ void *poll_gpsd(gpointer data)
 				     DBUS_TYPE_INVALID);
 		}
 
-		if (isfinite(f->speed) || isfinite(f->track) || isfinite(f->climb)) {
+		if (isfinite(f->speed) || isfinite(f->track)
+		    || isfinite(f->climb)) {
 			g_debug("CourseChanged");
 			dbus_send_va(COURSE_INTERFACE, "CourseChanged",
 				     DBUS_TYPE_DOUBLE, &f->speed,
@@ -206,14 +209,13 @@ void *poll_gpsd(gpointer data)
 		if (isfinite(f->ept) || isfinite(f->epv) || isfinite(f->epd)
 		    || isfinite(f->eps) || isfinite(f->epc) || isfinite(f->eph)) {
 			g_debug("AccuracyChanged");
-			dbus_send_va(ACCURACY_INTERFACE, "AccuracyChanged",
-				DBUS_TYPE_DOUBLE, &f->ept, /* Expected time uncertainty, seconds */
-				DBUS_TYPE_DOUBLE, &f->epv, /* Vertical pos uncertainty, meters */
-				DBUS_TYPE_DOUBLE, &f->epd, /* Track uncertainty, degrees */
-				DBUS_TYPE_DOUBLE, &f->eps, /* Speed uncertainty, meters/sec */
-				DBUS_TYPE_DOUBLE, &f->epc, /* Vertical speed uncertainty */
-				DBUS_TYPE_DOUBLE, &f->eph, /* Horizontal pos uncertainty (2D) */
-				DBUS_TYPE_INVALID);
+			dbus_send_va(ACCURACY_INTERFACE, "AccuracyChanged", DBUS_TYPE_DOUBLE, &f->ept,	/* Expected time uncertainty, seconds */
+				     DBUS_TYPE_DOUBLE, &f->epv,	/* Vertical pos uncertainty, meters */
+				     DBUS_TYPE_DOUBLE, &f->epd,	/* Track uncertainty, degrees */
+				     DBUS_TYPE_DOUBLE, &f->eps,	/* Speed uncertainty, meters/sec */
+				     DBUS_TYPE_DOUBLE, &f->epc,	/* Vertical speed uncertainty */
+				     DBUS_TYPE_DOUBLE, &f->eph,	/* Horizontal pos uncertainty (2D) */
+				     DBUS_TYPE_INVALID);
 		}
 	}
 
@@ -222,9 +224,9 @@ void *poll_gpsd(gpointer data)
 
 int acquire_flock(gpointer lockfd)
 {
-    /* If we can acquire this lock, it means that all our clients have
-     * disappeared, so we will exit. */
-	if (flock(GPOINTER_TO_INT(lockfd), LOCK_EX|LOCK_NB) == 0) {
+	/* If we can acquire this lock, it means that all our clients have
+	 * disappeared, so we will exit. */
+	if (flock(GPOINTER_TO_INT(lockfd), LOCK_EX | LOCK_NB) == 0) {
 		g_debug("Acquired exclusive lock. Exiting.");
 		flock(GPOINTER_TO_INT(lockfd), LOCK_UN);
 		close(GPOINTER_TO_INT(lockfd));
@@ -255,11 +257,12 @@ int main(int argc, char *argv[])
 	dbus_connection_setup_with_g_main(dbus, NULL);
 	if (dbus_bus_request_name(dbus, DAEMON_DBUS_NAME, 0, NULL) != 1) {
 		g_critical("Failed to register service '%s'. Already running?",
-				DAEMON_DBUS_NAME);
+			   DAEMON_DBUS_NAME);
 		return 1;
 	}
 
-	lockfd = open(FLOCK_PATH, O_RDONLY, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
+	lockfd =
+	    open(FLOCK_PATH, O_RDONLY, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP);
 	if (lockfd < 0) {
 		g_critical("open() lockfd: %s", g_strerror(errno));
 		return 1;
@@ -284,13 +287,13 @@ int main(int argc, char *argv[])
 
 	running = 1;
 	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE,
-		&running, DBUS_TYPE_INVALID);
+		     &running, DBUS_TYPE_INVALID);
 
-    /* We have to use a separate thread to poll gpsd, otherwise we might lose
-     * data, because when polling we get a glimpse of the last packet from
-     * the receiver. A client needs to continuously poll to get all the
-     * glimpses together. If polling is done in iterations, e.g.
-     * g_timeout_add_seconds(1, ...), data is lost */
+	/* We have to use a separate thread to poll gpsd, otherwise we might lose
+	 * data, because when polling we get a glimpse of the last packet from
+	 * the receiver. A client needs to continuously poll to get all the
+	 * glimpses together. If polling is done in iterations, e.g.
+	 * g_timeout_add_seconds(1, ...), data is lost */
 	poll_thread = g_thread_new("gpsd-poll", &poll_gpsd, NULL);
 	g_timeout_add_seconds(15, acquire_flock, GINT_TO_POINTER(lockfd));
 	g_main_loop_run(mainloop);
@@ -299,7 +302,7 @@ int main(int argc, char *argv[])
 	g_thread_join(poll_thread);
 
 	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE,
-		&running, DBUS_TYPE_INVALID);
+		     &running, DBUS_TYPE_INVALID);
 
 	(void)gps_stream(&gpsdata, WATCH_DISABLE, NULL);
 	(void)gps_close(&gpsdata);
