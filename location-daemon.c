@@ -221,6 +221,8 @@ void *poll_gpsd(gpointer data)
 
 int acquire_flock(gpointer lockfd)
 {
+    /* If we can acquire this lock, it means that all our clients have
+     * disappeared, so we will exit. */
 	if (flock(GPOINTER_TO_INT(lockfd), LOCK_EX|LOCK_NB) == 0) {
 		g_debug("Acquired exclusive lock. Exiting.");
 		flock(GPOINTER_TO_INT(lockfd), LOCK_UN);
@@ -282,13 +284,14 @@ int main(int argc, char *argv[])
 	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE,
 		&running, DBUS_TYPE_INVALID);
 
+    /* We have to use a thread to libgps polling, otherwise we might lose data,
+     * according to the libgps folks */
 	poll_thread = g_thread_new("gpsd-poll", &poll_gpsd, NULL);
 	g_timeout_add_seconds(15, acquire_flock, GINT_TO_POINTER(lockfd));
 	g_main_loop_run(mainloop);
 
 	running = 0;
 	g_thread_join(poll_thread);
-	g_thread_unref(poll_thread);
 
 	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE,
 		&running, DBUS_TYPE_INVALID);
