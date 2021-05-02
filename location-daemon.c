@@ -51,7 +51,6 @@ static GMainLoop *mainloop;
 static GThread *poll_thread;
 static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
-/* static struct satellite_t skyview[MAXCHANNELS]; */
 static int running = 0;
 
 int sighandler(gpointer sig)
@@ -146,6 +145,7 @@ void *poll_gpsd(gpointer data)
 		case MODE_NO_FIX:
 		case MODE_2D:
 		case MODE_3D:
+			g_debug("FixStatusChanged");
 			dbus_send_va(DEVICE_INTERFACE, "FixStatusChanged",
 				     DBUS_TYPE_BYTE, &f->mode,
 				     DBUS_TYPE_INVALID);
@@ -209,7 +209,8 @@ void *poll_gpsd(gpointer data)
 		if (isfinite(f->ept) || isfinite(f->epv) || isfinite(f->epd)
 		    || isfinite(f->eps) || isfinite(f->epc) || isfinite(f->eph)) {
 			g_debug("AccuracyChanged");
-			dbus_send_va(ACCURACY_INTERFACE, "AccuracyChanged", DBUS_TYPE_DOUBLE, &f->ept,	/* Expected time uncertainty, seconds */
+			dbus_send_va(ACCURACY_INTERFACE, "AccuracyChanged",
+				     DBUS_TYPE_DOUBLE, &f->ept,	/* Expected time uncertainty, seconds */
 				     DBUS_TYPE_DOUBLE, &f->epv,	/* Vertical pos uncertainty, meters */
 				     DBUS_TYPE_DOUBLE, &f->epd,	/* Track uncertainty, degrees */
 				     DBUS_TYPE_DOUBLE, &f->eps,	/* Speed uncertainty, meters/sec */
@@ -261,8 +262,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	lockfd =
-	    open(FLOCK_PATH, O_RDONLY, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP);
+	lockfd = open(FLOCK_PATH, O_RDONLY, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP);
 	if (lockfd < 0) {
 		g_critical("open() lockfd: %s", g_strerror(errno));
 		return 1;
