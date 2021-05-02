@@ -102,6 +102,70 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 	dbus_message_unref(msg);
 }
 
+void dbus_send_sats(const char *interface, const char *sig)
+{
+	DBusMessage *msg;
+	dbus_uint32_t serial = 0;
+	DBusMessageIter iter, arr, st;
+
+	msg = dbus_message_new_signal(DAEMON_DBUS_PATH, interface, sig);
+	if (msg == NULL) {
+		g_warning("dbus_message_new_signal: %s message NULL", sig);
+		return;
+	}
+
+	dbus_message_iter_init_append(msg, &iter);
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ndddb)", &arr);
+
+	for (int i = 0; i < gpsdata.satellites_visible; i++) {
+		dbus_message_iter_open_container(&arr, DBUS_TYPE_STRUCT, NULL, &st);
+
+		if (!dbus_message_iter_append_basic
+		    (&st, DBUS_TYPE_INT16, &gpsdata.skyview[i].PRN)) {
+			g_warning("error adding skyview[%d].PRN to dbus msg", i);
+			goto out;
+		}
+
+		if (!dbus_message_iter_append_basic
+		    (&st, DBUS_TYPE_DOUBLE, &gpsdata.skyview[i].elevation)) {
+			g_warning("error adding skyview[%d].elevation to dbus msg", i);
+			goto out;
+		}
+
+		if (!dbus_message_iter_append_basic
+		    (&st, DBUS_TYPE_DOUBLE, &gpsdata.skyview[i].azimuth)) {
+			g_warning("error adding skyview[%d].azimuth to dbus msg", i);
+			goto out;
+		}
+
+		if (!dbus_message_iter_append_basic
+		    (&st, DBUS_TYPE_DOUBLE, &gpsdata.skyview[i].ss)) {
+			g_warning("error adding skyview[%d].ss to dbus msg", i);
+			goto out;
+		}
+
+		dbus_bool_t used = gpsdata.skyview[i].used;
+		if (!dbus_message_iter_append_basic
+		    (&st, DBUS_TYPE_BOOLEAN, &used)) {
+			g_warning("error adding skyview[%d].used to dbus msg", i);
+			goto out;
+		}
+
+		dbus_message_iter_close_container(&arr, &st);
+	}
+
+	dbus_message_iter_close_container(&iter, &arr);
+
+	if (!dbus_connection_send(dbus, msg, &serial)) {
+		g_warning("dbus_send_sats: %s: out of memory on send", sig);
+		goto out;
+	}
+
+	dbus_connection_flush(dbus);
+ out:
+	dbus_message_unref(msg);
+}
+
 void debug_gpsdata(struct gps_fix_t *f)
 {
 	g_debug("mode: %d", f->mode);
@@ -154,29 +218,10 @@ void *poll_gpsd(gpointer data)
 			continue;
 		}
 
-		/*
 		if (gpsdata.satellites_visible > 0) {
-			int c = 0;
-			for (int i = 0; i < gpsdata.satellites_visible; i++) {
-				if (!isequal(gpsdata.skyview[i].ss, skyview[i].ss)
-				    || gpsdata.skyview[i].used != skyview[i].used
-				    || gpsdata.skyview[i].PRN != skyview[i].PRN
-				    || !isequal(gpsdata.skyview[i].elevation,
-						skyview[i].elevation)
-				    || !isequal(gpsdata.skyview[i].azimuth,
-						skyview[i].azimuth)) {
-					c = 1;
-					memcpy(&gpsdata.skyview[i], &skyview[i],
-					       sizeof(struct satellite_t));
-				}
-			}
-
-			TODO: Decide how to publish satellites on dbus
-			if (c) {
-				fprintf(stderr, "sats changed\n");
-			}
+			g_debug("SatellitesChanged");
+			dbus_send_sats(SATELLITE_INTERFACE, "SatellitesChanged");
 		}
-		*/
 
 		if (gpsdata.set & TIME_SET) {
 			g_debug("TimeChanged");
