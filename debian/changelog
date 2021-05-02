@@ -1,3 +1,11 @@
+location-daemon (0.7-1) unstable; urgency=medium
+
+  * Send satellite info over dbus.
+  * Some style cleanup.
+  * Run indent -linux.
+
+ -- Ivan J. <parazyd@dyne.org>  Mon, 03 May 2021 00:10:59 +0200
+
 location-daemon (0.6-1) unstable; urgency=medium
 
   * Further explain the reason for a polling thread.
