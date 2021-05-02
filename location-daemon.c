@@ -127,6 +127,7 @@ void *poll_gpsd(gpointer data)
 	g_debug(G_STRFUNC);
 
 	while (running) {
+		/* 1*1000000 == 1 second */
 		if (!gps_waiting(&gpsdata, 1 * 1000000)) {
 			g_debug("gps_waiting -> FALSE");
 			continue;
@@ -231,6 +232,7 @@ int acquire_flock(gpointer lockfd)
 		g_main_loop_quit(mainloop);
 		return FALSE;
 	}
+
 	return TRUE;
 }
 
@@ -284,8 +286,11 @@ int main(int argc, char *argv[])
 	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE,
 		&running, DBUS_TYPE_INVALID);
 
-    /* We have to use a thread to libgps polling, otherwise we might lose data,
-     * according to the libgps folks */
+    /* We have to use a separate thread to poll gpsd, otherwise we might lose
+     * data, because when polling we get a glimpse of the last packet from
+     * the receiver. A client needs to continuously poll to get all the
+     * glimpses together. If polling is done in iterations, e.g.
+     * g_timeout_add_seconds(1, ...), data is lost */
 	poll_thread = g_thread_new("gpsd-poll", &poll_gpsd, NULL);
 	g_timeout_add_seconds(15, acquire_flock, GINT_TO_POINTER(lockfd));
 	g_main_loop_run(mainloop);
