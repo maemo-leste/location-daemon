@@ -1,3 +1,11 @@
+location-daemon (0.6-1) unstable; urgency=medium
+
+  * Further explain the reason for a polling thread.
+  * location-daemon: add two comments, remove unref
+  * Use a separate thread for gpsd polling, and publish everything.
+
+ -- Ivan J. <parazyd@dyne.org>  Sun, 02 May 2021 22:42:41 +0200
+
 location-daemon (0.5-1) unstable; urgency=medium
 
   * Start gpsd via sudoers and initscript.
