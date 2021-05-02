@@ -16,19 +16,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <errno.h>
-#include <float.h>
 #include <math.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/file.h>
-#include <unistd.h>
 
-#include <dbus/dbus.h>
 #include <dbus/dbus-glib-lowlevel.h>
-#include <glib.h>
 #include <glib-unix.h>
 #include <gps.h>
 
@@ -50,30 +41,18 @@
 
 /* function declarations */
 static int sighandler(gpointer);
-static int isequal(double, double);
 static void dbus_send_va(const char *, const char *, int, ...);
-static int poll_and_publish_gpsd_data(gpointer);
+static void debug_gpsdata(struct gps_fix_t *);
+static void *poll_gpsd(gpointer);
 static int acquire_flock(gpointer);
 
 /* variables */
 static GMainLoop *mainloop;
+static GThread *poll_thread;
 static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
 /* static struct satellite_t skyview[MAXCHANNELS]; */
 static int running = 0;
-static int mode = MODE_NOT_SEEN;
-static double ept = 0.0 / 0.0;
-static double lat = 0.0 / 0.0;
-static double lon = 0.0 / 0.0;
-static double eph = 0.0 / 0.0;
-static double alt = 0.0 / 0.0;
-static double epv = 0.0 / 0.0;
-static double trk = 0.0 / 0.0;
-static double epd = 0.0 / 0.0;
-static double spd = 0.0 / 0.0;
-static double eps = 0.0 / 0.0;
-static double clb = 0.0 / 0.0;
-static double epc = 0.0 / 0.0;
 
 int sighandler(gpointer sig)
 {
@@ -92,17 +71,6 @@ int sighandler(gpointer sig)
 	return 0;
 }
 
-int isequal(double a, double b)
-{
-	double diff = fabs(a - b);
-	a = fabs(a);
-	b = fabs(b);
-	double largest = (b > a) ? b : a;
-	if (diff <= largest * FLT_EPSILON)
-		return 1;
-	return 0;
-}
-
 void dbus_send_va(const char *interface, const char *sig, int f, ...)
 {
 	DBusMessage *msg;
@@ -110,7 +78,7 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 
 	msg = dbus_message_new_signal(DAEMON_DBUS_PATH, interface, sig);
 	if (msg == NULL) {
-		g_warning("dbus_send_double: %s message NULL", sig);
+		g_warning("dbus_message_new_signal: %s message NULL", sig);
 		return;
 	}
 
@@ -135,113 +103,120 @@ void dbus_send_va(const char *interface, const char *sig, int f, ...)
 	dbus_message_unref(msg);
 }
 
-int poll_and_publish_gpsd_data(gpointer data)
+void debug_gpsdata(struct gps_fix_t *f)
 {
-	g_message(G_STRFUNC);
-	if (gps_waiting(&gpsdata, 500)) {
-		errno = 0;
+	g_debug("mode: %d", f->mode);
+	g_debug("time_sec: %ld", f->time.tv_sec);
+	g_debug("time_nsec: %ld", f->time.tv_nsec);
+	g_debug("lat: %f", f->latitude);
+	g_debug("lon: %f", f->longitude);
+	g_debug("alt: %f", f->altMSL);
+	g_debug("speed: %f", f->speed);
+	g_debug("track: %f", f->track);
+	g_debug("climb: %f", f->climb);
+	g_debug("ept: %f", f->ept);
+	g_debug("epv: %f", f->epv);
+	g_debug("epd: %f", f->epd);
+	g_debug("eps: %f", f->eps);
+	g_debug("epc: %f", f->epc);
+	g_debug("eph: %f", f->eph);
+}
+
+void *poll_gpsd(gpointer data)
+{
+	g_debug(G_STRFUNC);
+
+	while (running) {
+		if (!gps_waiting(&gpsdata, 1 * 1000000)) {
+			g_debug("gps_waiting -> FALSE");
+			continue;
+		}
+
 		if (gps_read(&gpsdata, NULL, 0) == -1) {
 			g_warning("gpsd read error: %d, %s", errno, gps_errstr(errno));
-			return TRUE;
+			continue;
 		}
-	} else {
-		return TRUE;
-	}
 
-	struct gps_fix_t *f = &gpsdata.fix;
+		struct gps_fix_t *f = &gpsdata.fix;
+		debug_gpsdata(f);
 
-	if (mode != f->mode) {
-		mode = f->mode;
-		dbus_send_va(DEVICE_INTERFACE, "FixStatusChanged",
-			     DBUS_TYPE_BYTE, &mode, DBUS_TYPE_INVALID);
-	}
+		switch (f->mode) {
+		case MODE_NO_FIX:
+		case MODE_2D:
+		case MODE_3D:
+			dbus_send_va(DEVICE_INTERFACE, "FixStatusChanged",
+				DBUS_TYPE_BYTE, &f->mode, DBUS_TYPE_INVALID);
+			break;
+		default:
+			continue;
+		}
 
-	/*
-	if (gpsdata.satellites_visible > 0) {
-		int c = 0;
-		for (int i = 0; i < gpsdata.satellites_visible; i++) {
-			if (!isequal(gpsdata.skyview[i].ss, skyview[i].ss)
-			    || gpsdata.skyview[i].used != skyview[i].used
-			    || gpsdata.skyview[i].PRN != skyview[i].PRN
-			    || !isequal(gpsdata.skyview[i].elevation,
-					skyview[i].elevation)
-			    || !isequal(gpsdata.skyview[i].azimuth,
-					skyview[i].azimuth)) {
-				c = 1;
-				memcpy(&gpsdata.skyview[i], &skyview[i],
-				       sizeof(struct satellite_t));
+		/*
+		if (gpsdata.satellites_visible > 0) {
+			int c = 0;
+			for (int i = 0; i < gpsdata.satellites_visible; i++) {
+				if (!isequal(gpsdata.skyview[i].ss, skyview[i].ss)
+				    || gpsdata.skyview[i].used != skyview[i].used
+				    || gpsdata.skyview[i].PRN != skyview[i].PRN
+				    || !isequal(gpsdata.skyview[i].elevation,
+						skyview[i].elevation)
+				    || !isequal(gpsdata.skyview[i].azimuth,
+						skyview[i].azimuth)) {
+					c = 1;
+					memcpy(&gpsdata.skyview[i], &skyview[i],
+					       sizeof(struct satellite_t));
+				}
+			}
+
+			TODO: Decide how to publish satellites on dbus
+			if (c) {
+				fprintf(stderr, "sats changed\n");
 			}
 		}
+		*/
 
-		TODO: Decide how to publish satellites on dbus
-		if (c) {
-			fprintf(stderr, "sats changed\n");
+		if (gpsdata.set & TIME_SET) {
+			g_debug("TimeChanged");
+			dbus_send_va(TIME_INTERFACE, "TimeChanged",
+				     DBUS_TYPE_INT64, &f->time.tv_sec,
+				     DBUS_TYPE_INT64, &f->time.tv_nsec,
+				     DBUS_TYPE_INVALID);
 		}
-	}
-	*/
 
-	/* Time updates on every iteration, so there is no need for checks */
-	if (gpsdata.set & TIME_SET) {
-		dbus_send_va(TIME_INTERFACE, "TimeChanged",
-			     DBUS_TYPE_INT64, &f->time.tv_sec,
-			     DBUS_TYPE_INT64, &f->time.tv_nsec,
-			     DBUS_TYPE_INVALID);
-	}
-
-	if (isfinite(f->latitude) || isfinite(f->longitude)
-	    || isfinite(f->altMSL)) {
-		if (!isequal(lat, f->latitude) || !isequal(lon, f->longitude)
-		    || !isequal(alt, f->altMSL)
-		    || !isfinite(lat) || !isfinite(lon) || !isfinite(alt)) {
-
-			lat = f->latitude;
-			lon = f->longitude;
-			alt = f->altMSL;
+		if (isfinite(f->latitude) || isfinite(f->longitude)
+				|| isfinite(f->altMSL)) {
+			g_debug("PositionChanged");
 			dbus_send_va(POSITION_INTERFACE, "PositionChanged",
-				     DBUS_TYPE_DOUBLE, &lat,
-				     DBUS_TYPE_DOUBLE, &lon,
-				     DBUS_TYPE_DOUBLE, &alt, DBUS_TYPE_INVALID);
+				     DBUS_TYPE_DOUBLE, &f->latitude,
+				     DBUS_TYPE_DOUBLE, &f->longitude,
+				     DBUS_TYPE_DOUBLE, &f->altMSL,
+				     DBUS_TYPE_INVALID);
 		}
-	}
 
-	if (isfinite(f->speed) || isfinite(f->track) || isfinite(f->climb)) {
-		if (!isequal(spd, f->speed) || !isequal(trk, f->track)
-		    || !isequal(clb, f->climb)
-		    || !isfinite(spd) || !isfinite(trk) || !isfinite(clb)) {
-
-			spd = f->speed;
-			trk = f->track;
-			clb = f->climb;
+		if (isfinite(f->speed) || isfinite(f->track) || isfinite(f->climb)) {
+			g_debug("CourseChanged");
 			dbus_send_va(COURSE_INTERFACE, "CourseChanged",
-				     DBUS_TYPE_DOUBLE, &spd,
-				     DBUS_TYPE_DOUBLE, &trk,
-				     DBUS_TYPE_DOUBLE, &clb, DBUS_TYPE_INVALID);
+				     DBUS_TYPE_DOUBLE, &f->speed,
+				     DBUS_TYPE_DOUBLE, &f->track,
+				     DBUS_TYPE_DOUBLE, &f->climb,
+				     DBUS_TYPE_INVALID);
 		}
-	}
 
-	if (isfinite(f->ept) || isfinite(f->epv) || isfinite(f->epd)
-	    || isfinite(f->eps) || isfinite(f->epc) || isfinite(f->eph)) {
-		if (!isequal(ept, f->ept) || !isequal(epv, f->epv)
-		    || !isequal(epd, f->epd) || !isequal(eps, f->eps)
-		    || !isequal(epc, f->epc) || !isequal(eph, f->eph)) {
-
-			ept = f->ept;	/* Expected time uncertainty, seconds */
-			epv = f->epv;	/* Vertical pos uncertainty, meters */
-			epd = f->epd;	/* Track uncertainty, degrees */
-			eps = f->eps;	/* Speed uncertainty, meters/sec */
-			epc = f->epc;	/* Vertical speed uncertainty */
-			eph = f->eph;	/* Horizontal pos uncertainty (2D) */
+		if (isfinite(f->ept) || isfinite(f->epv) || isfinite(f->epd)
+		    || isfinite(f->eps) || isfinite(f->epc) || isfinite(f->eph)) {
+			g_debug("AccuracyChanged");
 			dbus_send_va(ACCURACY_INTERFACE, "AccuracyChanged",
-				     DBUS_TYPE_DOUBLE, &ept,
-				     DBUS_TYPE_DOUBLE, &epv,
-				     DBUS_TYPE_DOUBLE, &epd,
-				     DBUS_TYPE_DOUBLE, &eps,
-				     DBUS_TYPE_DOUBLE, &epc,
-				     DBUS_TYPE_DOUBLE, &eph, DBUS_TYPE_INVALID);
+				DBUS_TYPE_DOUBLE, &f->ept, /* Expected time uncertainty, seconds */
+				DBUS_TYPE_DOUBLE, &f->epv, /* Vertical pos uncertainty, meters */
+				DBUS_TYPE_DOUBLE, &f->epd, /* Track uncertainty, degrees */
+				DBUS_TYPE_DOUBLE, &f->eps, /* Speed uncertainty, meters/sec */
+				DBUS_TYPE_DOUBLE, &f->epc, /* Vertical speed uncertainty */
+				DBUS_TYPE_DOUBLE, &f->eph, /* Horizontal pos uncertainty (2D) */
+				DBUS_TYPE_INVALID);
 		}
 	}
 
-	return TRUE;
+	return NULL;
 }
 
 int acquire_flock(gpointer lockfd)
@@ -259,8 +234,6 @@ int acquire_flock(gpointer lockfd)
 
 int main(int argc, char *argv[])
 {
-	/* gpsd poll interval in seconds. Think about higher resolution. */
-	unsigned int interval = 1;
 	int lockfd = -1;
 
 	mainloop = g_main_loop_new(NULL, FALSE);
@@ -309,11 +282,14 @@ int main(int argc, char *argv[])
 	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE,
 		&running, DBUS_TYPE_INVALID);
 
-	g_timeout_add_seconds(interval, poll_and_publish_gpsd_data, NULL);
+	poll_thread = g_thread_new("gpsd-poll", &poll_gpsd, NULL);
 	g_timeout_add_seconds(15, acquire_flock, GINT_TO_POINTER(lockfd));
 	g_main_loop_run(mainloop);
 
 	running = 0;
+	g_thread_join(poll_thread);
+	g_thread_unref(poll_thread);
+
 	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE,
 		&running, DBUS_TYPE_INVALID);
 
