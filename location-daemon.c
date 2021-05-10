@@ -42,9 +42,9 @@
 /* function declarations */
 static int sighandler(gpointer);
 static void dbus_send_va(const char *, const char *, int, ...);
-static void debug_gpsdata(struct gps_fix_t *);
 static void *poll_gpsd(gpointer);
 static int acquire_flock(gpointer);
+static void debug_gpsdata(struct gps_fix_t *);
 
 /* variables */
 static GMainLoop *mainloop;
@@ -115,46 +115,34 @@ void dbus_send_sats(const char *interface, const char *sig)
 	}
 
 	dbus_message_iter_init_append(msg, &iter);
-	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ndddb)",
-					 &arr);
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ndddb)", &arr);
 
 	for (int i = 0; i < gpsdata.satellites_visible; i++) {
-		dbus_message_iter_open_container(&arr, DBUS_TYPE_STRUCT, NULL,
-						 &st);
+		dbus_message_iter_open_container(&arr, DBUS_TYPE_STRUCT, NULL, &st);
 
-		if (!dbus_message_iter_append_basic
-		    (&st, DBUS_TYPE_INT16, &gpsdata.skyview[i].PRN)) {
-			g_warning("error adding skyview[%d].PRN to dbus msg",
-				  i);
+		if (!dbus_message_iter_append_basic(&st, DBUS_TYPE_INT16, &gpsdata.skyview[i].PRN)) {
+			g_warning("error adding skyview[%d].PRN to dbus msg", i);
 			goto out;
 		}
 
-		if (!dbus_message_iter_append_basic
-		    (&st, DBUS_TYPE_DOUBLE, &gpsdata.skyview[i].elevation)) {
-			g_warning
-			    ("error adding skyview[%d].elevation to dbus msg",
-			     i);
+		if (!dbus_message_iter_append_basic(&st, DBUS_TYPE_DOUBLE, &gpsdata.skyview[i].elevation)) {
+			g_warning("error adding skyview[%d].elevation to dbus msg", i);
 			goto out;
 		}
 
-		if (!dbus_message_iter_append_basic
-		    (&st, DBUS_TYPE_DOUBLE, &gpsdata.skyview[i].azimuth)) {
-			g_warning
-			    ("error adding skyview[%d].azimuth to dbus msg", i);
+		if (!dbus_message_iter_append_basic(&st, DBUS_TYPE_DOUBLE, &gpsdata.skyview[i].azimuth)) {
+			g_warning("error adding skyview[%d].azimuth to dbus msg", i);
 			goto out;
 		}
 
-		if (!dbus_message_iter_append_basic
-		    (&st, DBUS_TYPE_DOUBLE, &gpsdata.skyview[i].ss)) {
+		if (!dbus_message_iter_append_basic(&st, DBUS_TYPE_DOUBLE, &gpsdata.skyview[i].ss)) {
 			g_warning("error adding skyview[%d].ss to dbus msg", i);
 			goto out;
 		}
 
 		dbus_bool_t used = gpsdata.skyview[i].used;
-		if (!dbus_message_iter_append_basic
-		    (&st, DBUS_TYPE_BOOLEAN, &used)) {
-			g_warning("error adding skyview[%d].used to dbus msg",
-				  i);
+		if (!dbus_message_iter_append_basic(&st, DBUS_TYPE_BOOLEAN, &used)) {
+			g_warning("error adding skyview[%d].used to dbus msg", i);
 			goto out;
 		}
 
@@ -205,8 +193,7 @@ void *poll_gpsd(gpointer unused)
 		}
 
 		if (gps_read(&gpsdata, NULL, 0) == -1) {
-			g_warning("gpsd read error: %d, %s", errno,
-				  gps_errstr(errno));
+			g_warning("gpsd read error: %d, %s", errno, gps_errstr(errno));
 			continue;
 		}
 
@@ -218,9 +205,7 @@ void *poll_gpsd(gpointer unused)
 		case MODE_2D:
 		case MODE_3D:
 			g_debug("FixStatusChanged");
-			dbus_send_va(DEVICE_INTERFACE, "FixStatusChanged",
-				     DBUS_TYPE_BYTE, &f->mode,
-				     DBUS_TYPE_INVALID);
+			dbus_send_va(DEVICE_INTERFACE, "FixStatusChanged", DBUS_TYPE_BYTE, &f->mode, DBUS_TYPE_INVALID);
 			break;
 		default:
 			continue;
@@ -228,16 +213,14 @@ void *poll_gpsd(gpointer unused)
 
 		if (gpsdata.satellites_visible > 0) {
 			g_debug("SatellitesChanged");
-			dbus_send_sats(SATELLITE_INTERFACE,
-				       "SatellitesChanged");
+			dbus_send_sats(SATELLITE_INTERFACE, "SatellitesChanged");
 		}
 
 		if (gpsdata.set & TIME_SET) {
 			g_debug("TimeChanged");
 			dbus_send_va(TIME_INTERFACE, "TimeChanged",
 				     DBUS_TYPE_INT64, &f->time.tv_sec,
-				     DBUS_TYPE_INT64, &f->time.tv_nsec,
-				     DBUS_TYPE_INVALID);
+				     DBUS_TYPE_INT64, &f->time.tv_nsec, DBUS_TYPE_INVALID);
 		}
 
 		if (isfinite(f->latitude) || isfinite(f->longitude)
@@ -245,9 +228,7 @@ void *poll_gpsd(gpointer unused)
 			g_debug("PositionChanged");
 			dbus_send_va(POSITION_INTERFACE, "PositionChanged",
 				     DBUS_TYPE_DOUBLE, &f->latitude,
-				     DBUS_TYPE_DOUBLE, &f->longitude,
-				     DBUS_TYPE_DOUBLE, &f->altMSL,
-				     DBUS_TYPE_INVALID);
+				     DBUS_TYPE_DOUBLE, &f->longitude, DBUS_TYPE_DOUBLE, &f->altMSL, DBUS_TYPE_INVALID);
 		}
 
 		if (isfinite(f->speed) || isfinite(f->track)
@@ -255,9 +236,7 @@ void *poll_gpsd(gpointer unused)
 			g_debug("CourseChanged");
 			dbus_send_va(COURSE_INTERFACE, "CourseChanged",
 				     DBUS_TYPE_DOUBLE, &f->speed,
-				     DBUS_TYPE_DOUBLE, &f->track,
-				     DBUS_TYPE_DOUBLE, &f->climb,
-				     DBUS_TYPE_INVALID);
+				     DBUS_TYPE_DOUBLE, &f->track, DBUS_TYPE_DOUBLE, &f->climb, DBUS_TYPE_INVALID);
 		}
 
 		if (isfinite(f->ept) || isfinite(f->epv) || isfinite(f->epd)
@@ -306,21 +285,19 @@ int main(int argc, char *argv[])
 	g_unix_signal_add(SIGINT, sighandler, GINT_TO_POINTER(SIGINT));
 	g_unix_signal_add(SIGTERM, sighandler, GINT_TO_POINTER(SIGTERM));
 
-	dbus = dbus_bus_get(DBUS_BUS_SYSTEM, NULL);
+	dbus = dbus_bus_get_private(DBUS_BUS_SYSTEM, NULL);
 	if (!dbus) {
 		g_critical("Failed to init DBus");
 		return 1;
 	}
 
 	dbus_connection_setup_with_g_main(dbus, NULL);
-	if (dbus_bus_request_name(dbus, DAEMON_DBUS_NAME, 0, NULL) != 1) {
-		g_critical("Failed to register service '%s'. Already running?",
-			   DAEMON_DBUS_NAME);
+	if (dbus_bus_request_name(dbus, DAEMON_DBUS_NAME, 0, NULL) != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
+		g_critical("Failed to register service '%s'. Already running?", DAEMON_DBUS_NAME);
 		return 1;
 	}
 
-	lockfd =
-	    open(FLOCK_PATH, O_RDONLY, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP);
+	lockfd = open(FLOCK_PATH, O_RDONLY, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP);
 	if (lockfd < 0) {
 		g_critical("open() lockfd: %s", g_strerror(errno));
 		return 1;
@@ -344,33 +321,37 @@ int main(int argc, char *argv[])
 	(void)gps_stream(&gpsdata, WATCH_ENABLE, NULL);
 
 	running = 1;
-	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE, &running,
-		     DBUS_TYPE_INVALID);
+	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE, &running, DBUS_TYPE_INVALID);
 
 	/* We have to use a separate thread to poll gpsd, otherwise we might lose
 	 * data, because when polling we get a glimpse of the last packet from
 	 * the receiver. A client needs to continuously poll to get all the
 	 * glimpses together. If polling is done in iterations, e.g.
 	 * g_timeout_add_seconds(1, ...), data is lost */
-	poll_thread =
-	    g_thread_try_new("gpsd-poll", &poll_gpsd, NULL, &thread_err);
+	poll_thread = g_thread_try_new("gpsd-poll", &poll_gpsd, NULL, &thread_err);
 	if (thread_err != NULL) {
 		g_critical("Unable to create gps polling thread");
 		g_error_free(thread_err);
 	} else {
-		g_timeout_add_seconds(15, acquire_flock,
-				      GINT_TO_POINTER(lockfd));
+		g_timeout_add_seconds(15, acquire_flock, GINT_TO_POINTER(lockfd));
 		g_main_loop_run(mainloop);
 	}
 
 	running = 0;
 	g_thread_join(poll_thread);
 
-	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE, &running,
-		     DBUS_TYPE_INVALID);
+	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE, &running, DBUS_TYPE_INVALID);
+
+	if (dbus_bus_release_name(dbus, DAEMON_DBUS_NAME, NULL) == -1) {
+		g_critical("Cannot release DBUS name");
+	}
+	dbus_connection_close(dbus);
+	dbus_connection_unref(dbus);
 
 	(void)gps_stream(&gpsdata, WATCH_DISABLE, NULL);
 	(void)gps_close(&gpsdata);
+
+	g_main_loop_unref(mainloop);
 
 	return 0;
 }
