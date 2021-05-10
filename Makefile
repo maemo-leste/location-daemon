@@ -16,7 +16,7 @@ DBUS_LIBS = $(shell pkg-config --libs dbus-1 dbus-glib-1)
 GLIB_CFLAGS = $(shell pkg-config --cflags glib-2.0)
 GLIB_LIBS = $(shell pkg-config --libs glib-2.0)
 
-LOCATIONDAEMON_CFLAGS = -O2 ${DBUS_CFLAGS} ${LIBGPS_CFLAGS} ${GLIB_CFLAGS} ${CFLAGS}
+LOCATIONDAEMON_CFLAGS = -O2 -Wall -Wextra -Werror ${DBUS_CFLAGS} ${LIBGPS_CFLAGS} ${GLIB_CFLAGS} ${CFLAGS}
 LOCATIONDAEMON_CPPFLAGS = -D_GNU_SOURCE -Wall -pedantic ${CPPFLAGS}
 LOCATIONDAEMON_LDFLAGS = ${DBUS_LIBS} ${LIBGPS_LIBS} ${GLIB_LIBS} ${LDFLAGS}
 
