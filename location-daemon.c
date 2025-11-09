@@ -18,6 +18,7 @@
  */
 #include <math.h>
 #include <sys/file.h>
+#include <inttypes.h>
 
 #include <dbus/dbus-glib-lowlevel.h>
 #include <glib-unix.h>
@@ -164,7 +165,7 @@ void dbus_send_sats(const char *interface, const char *sig)
 void debug_gpsdata(struct gps_fix_t *f)
 {
 	g_debug("mode: %d", f->mode);
-	g_debug("time_sec: %ld", f->time.tv_sec);
+	g_debug("time_sec: %"PRIdMAX , (intmax_t)f->time.tv_sec);
 	g_debug("time_nsec: %ld", f->time.tv_nsec);
 	g_debug("lat: %f", f->latitude);
 	g_debug("lon: %f", f->longitude);
