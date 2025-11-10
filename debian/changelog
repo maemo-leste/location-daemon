@@ -1,3 +1,9 @@
+location-daemon (0.8-1) unstable; urgency=medium
+
+  * Fix time_t printf
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Mon, 10 Nov 2025 01:25:42 +0100
+
 location-daemon (0.7-1) unstable; urgency=medium
 
   * Send satellite info over dbus.
