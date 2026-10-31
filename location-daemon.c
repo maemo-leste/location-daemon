@@ -53,6 +53,7 @@ static GThread *poll_thread;
 static DBusConnection *dbus;
 static struct gps_data_t gpsdata;
 static int running = 0;
+static int started_gpsd = 0;
 
 int sighandler(gpointer sig)
 {
@@ -308,6 +309,7 @@ int main(int argc, char *argv[])
 		g_debug("Could not connect to gpsd, attempting to start it");
 		switch (system("sudo /etc/init.d/gpsd start")) {
 		case 0:
+			started_gpsd = 1;
 			/* Give time to settle */
 			sleep(1);
 			break;
@@ -346,14 +348,17 @@ int main(int argc, char *argv[])
 
 	dbus_send_va(RUNNING_INTERFACE, "Running", DBUS_TYPE_BYTE, &running, DBUS_TYPE_INVALID);
 
+	(void)gps_stream(&gpsdata, WATCH_DISABLE, NULL);
+	(void)gps_close(&gpsdata);
+
+	if (started_gpsd && system("sudo /etc/init.d/gpsd stop") != 0)
+		g_warning("unable to stop gpsd via initscript");
+
 	if (dbus_bus_release_name(dbus, DAEMON_DBUS_NAME, NULL) == -1) {
 		g_critical("Cannot release DBUS name");
 	}
 	dbus_connection_close(dbus);
 	dbus_connection_unref(dbus);
-
-	(void)gps_stream(&gpsdata, WATCH_DISABLE, NULL);
-	(void)gps_close(&gpsdata);
 
 	g_main_loop_unref(mainloop);
 
